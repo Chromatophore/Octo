@@ -775,6 +775,9 @@ function haltBreakpoint(breakName) {
 		"<span>tick count: " + emulator.tickCounter + "</span><br>" +
 		"<span>breakpoint: " + breakName + "</span><br>" +
 		"<span onClick=\"cycleNumFormat('pc');\">pc := " + numericFormat(emulator.pc, regNumFormat["pc"]) + getLabel(emulator.pc) + "</span><br>" +
+		// real time dissassembly of command being performed:
+		"cmd = " + hexFormat(emulator.m[emulator.pc]) + hexFormat(emulator.m[emulator.pc + 1]).slice(2) + " (" +
+		formatInstruction(emulator.m[emulator.pc], emulator.m[emulator.pc + 1]) + ")<br>" +
 		"<span onClick=\"cycleNumFormat('i');\">i := " + numericFormat(emulator.i, regNumFormat["i"]) + getLabel(emulator.i) + "</span><br>";
 	for(var k = 0; k <= 0xF; k++) {
 		var hex = k.toString(16).toUpperCase();
@@ -795,20 +798,64 @@ function haltBreakpoint(breakName) {
 	while (dbg.locs[memhi + 1] < pcline + 8) memhi++;
 
 	var ind = memlo;
+
+	/*
 	regdump += '<br><table class="debugger"><tr><td>addr</td><td>data</td><td style="width:40em">source</td></tr>\n';
 	for (var line = dbg.locs[memlo]; line <= dbg.locs[memhi]; line++) {
 		if (dbg.lines[line].match(/^\s*$/)) continue;  // skip empty lines
 		if (dbg.locs[ind] == line) {
 			regdump += dbg.locs[ind] == pcline ? '<tr class="debugger-searchline">' : '<tr>';
 			regdump += "<td>" + hexFormat(ind).slice(2) + "</td><td>";
-			for (; dbg.locs[ind] == line; ind++)
+			for (; dbg.locs[ind] == line; ind++) {
 				regdump += hexFormat(emulator.m[ind]).slice(2);
+			}
 			regdump += "</td>";
 		} else {
 			regdump += "<tr><td></td><td></td>"
 		}
 		regdump += "<td><pre>" + escapeHtml(dbg.lines[line]) + "</pre></td></tr>\n";
+	}*/
+
+	memlo = emulator.pc - 16;
+	memlo -= memlo % 8;
+	memlo = memlo < 0 ? 0 : memlo
+	memhi = emulator.pc + 16;
+	memhi -= memhi % 8;
+	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
+
+	regdump += '<br><table class="memdump"><tr><td>addr</td><td>data</td></tr>\n';
+	regdump += "<br>";
+	var wrap = 0;
+	var color = '';
+	for (var addr = memlo; addr <= memhi; addr++) {
+		if (wrap == 0) {
+			regdump += '<tr>';
+		}
+
+		var lastColor = color;
+		if (addr == emulator.pc)
+			color = 'red';
+		else
+			color = '';
+
+		if (color != lastColor && lastColor == '')
+			regdump += '<font color ="' + color + '">'
+		regdump += hexFormat(emulator.m[addr]).slice(2)
+
+		if (color != lastColor && lastColor != '')
+			regdump += '</font> ';
+		
+		regdump += ' ';
+
+		wrap++;
+		if (wrap == 8)
+		{
+			regdump += '<tr>';
+			wrap = 0;
+			regdump += "<br>";
+		}
 	}
+	regdump += "<br>";
 
 	regs.innerHTML = regdump;
 	emulator.breakpoint = true;
