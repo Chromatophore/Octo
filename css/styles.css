@@ -108,3 +108,21 @@ canvas#spriteEditorPalette {
 	border-right: 1px solid;
 	border-top: 1px solid;
 }
+table.memdump {
+	font-family: monospace;
+	color: white;
+}
+div.debugger {
+	width: 300px;
+}
+#memorybox {
+    height: 120px;
+    overflow: auto;
+    position: relative;
+    resize: vertical;
+}
+code {
+    display: block;
+    margin: 10px;
+    font-family: monospace;
+}

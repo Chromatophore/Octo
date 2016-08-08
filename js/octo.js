@@ -30,9 +30,9 @@ function decimalFormat(num) {
 	return dec;
 }
 
-function hexFormat(num) {
+function hexFormat(num, pad = 2) {
 	var hex  = num.toString(16).toUpperCase();
-	var pad0 = zeroPad(hex.length, 2);
+	var pad0 = zeroPad(hex.length, pad);
 	return "0x" + pad0 + hex;
 }
 
@@ -814,7 +814,8 @@ function haltBreakpoint(breakName) {
 			regdump += "<tr><td></td><td></td>"
 		}
 		regdump += "<td><pre>" + escapeHtml(dbg.lines[line]) + "</pre></td></tr>\n";
-	}*/
+	}
+	*/
 
 	memlo = emulator.pc - 16;
 	memlo -= memlo % 8;
@@ -823,14 +824,20 @@ function haltBreakpoint(breakName) {
 	memhi -= memhi % 8;
 	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
 
+	// New memdump stuff.
+	regdump += '<code class="memorybox" id="memorybox">';
 	regdump += '<br><table class="memdump"><tr><td>addr</td><td>data</td></tr>\n';
-	regdump += "<br>";
+	//regdump += "<br>";
 	var wrap = 0;
 	var color = '';
-	for (var addr = memlo; addr <= memhi; addr++) {
+	//for (var addr = memlo; addr < memhi; addr++) {
+	for (var addr = 0; addr <= 0xFFF; addr++) {
 		if (wrap == 0) {
 			regdump += '<tr>';
+			regdump += "<td>" + hexFormat(addr, 4) + ":</td>";
+			regdump += "<td>";
 		}
+
 
 		var lastColor = color;
 		if (addr == emulator.pc)
@@ -839,27 +846,32 @@ function haltBreakpoint(breakName) {
 			color = '';
 
 		if (color != lastColor && lastColor == '')
-			regdump += '<font color ="' + color + '">'
+			regdump += '<span id="redmem"><font color ="' + color + '">'
 		regdump += hexFormat(emulator.m[addr]).slice(2)
 
 		if (color != lastColor && lastColor != '')
-			regdump += '</font> ';
-		
+			regdump += '</font></span>';
+
 		regdump += ' ';
 
 		wrap++;
 		if (wrap == 8)
 		{
-			regdump += '<tr>';
+			regdump += "</td>";
+			regdump += '</tr>';
 			wrap = 0;
-			regdump += "<br>";
+			//regdump += "<br>";
 		}
 	}
-	regdump += "<br>";
+	regdump += "</table><br>";
+	regdump += '</code>';
+
 
 	regs.innerHTML = regdump;
 	emulator.breakpoint = true;
 	curBreakName = breakName;
+	var redmem = document.getElementById("redmem");
+	redmem.scrollIntoView();
 }
 
 function clearBreakpoint() {
