@@ -771,13 +771,13 @@ function haltBreakpoint(breakName) {
 	var regs   = document.getElementById("registerView");
 	button.style.display = "inline";
 	regs.style.display = "inline";
+
 	var regdump =
 		"<span>tick count: " + emulator.tickCounter + "</span><br>" +
 		"<span>breakpoint: " + breakName + "</span><br>" +
 		"<span onClick=\"cycleNumFormat('pc');\">pc := " + numericFormat(emulator.pc, regNumFormat["pc"]) + getLabel(emulator.pc) + "</span><br>" +
 		// real time dissassembly of command being performed:
-		"cmd = " + hexFormat(emulator.m[emulator.pc]) + hexFormat(emulator.m[emulator.pc + 1]).slice(2) + " (" +
-		formatInstruction(emulator.m[emulator.pc], emulator.m[emulator.pc + 1]) + ")<br>" +
+		//"cmd = " + hexFormat(emulator.m[emulator.pc]) + hexFormat(emulator.m[emulator.pc + 1]).slice(2) + "<br>(" + dissaassmbledInstruction + ")<br>" +
 		"<span onClick=\"cycleNumFormat('i');\">i := " + numericFormat(emulator.i, regNumFormat["i"]) + getLabel(emulator.i) + "</span><br>";
 	for(var k = 0; k <= 0xF; k++) {
 		var hex = k.toString(16).toUpperCase();
@@ -817,12 +817,21 @@ function haltBreakpoint(breakName) {
 	}
 	*/
 
-	memlo = emulator.pc - 16;
-	memlo -= memlo % 8;
-	memlo = memlo < 0 ? 0 : memlo
-	memhi = emulator.pc + 16;
-	memhi -= memhi % 8;
 	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
+	var memcap = emulator.enableXO == true ? 0xFFFF : 0xFFF;
+	regdump += "<br>Memory space: " + memcap;
+
+	for (var mem = emulator.pc - 4; mem <= emulator.pc + 4; mem += 2)
+	{
+		if (mem == emulator.pc)
+			regdump += "<font color =red>";
+		var a = emulator.m[mem];
+		var nn = emulator.m[mem+1];
+		var thisHex = hexFormat(a) + hexFormat(nn).slice(2)
+		regdump += "<br>" + thisHex + ": " + realTimeDissassemble(a, nn);
+		if (mem == emulator.pc)
+			regdump += "</font>";
+	}
 
 	// New memdump stuff.
 	regdump += '<code class="memorybox" id="memorybox">';
@@ -831,13 +840,12 @@ function haltBreakpoint(breakName) {
 	var wrap = 0;
 	var color = '';
 	//for (var addr = memlo; addr < memhi; addr++) {
-	for (var addr = 0; addr <= 0xFFF; addr++) {
+	for (var addr = 0; addr <= memcap; addr++) {
 		if (wrap == 0) {
 			regdump += '<tr>';
 			regdump += "<td>" + hexFormat(addr, 4) + ":</td>";
 			regdump += "<td>";
 		}
-
 
 		var lastColor = color;
 		if (addr == emulator.pc)
@@ -847,7 +855,8 @@ function haltBreakpoint(breakName) {
 
 		if (color != lastColor && lastColor == '')
 			regdump += '<span id="redmem"><font color ="' + color + '">'
-		regdump += hexFormat(emulator.m[addr]).slice(2)
+		var data = emulator.m[addr];
+		regdump += data == undefined ? "xx" : hexFormat(emulator.m[addr]).slice(2)
 
 		if (color != lastColor && lastColor != '')
 			regdump += '</font></span>';
@@ -872,6 +881,30 @@ function haltBreakpoint(breakName) {
 	curBreakName = breakName;
 	var redmem = document.getElementById("redmem");
 	redmem.scrollIntoView();
+}
+
+function realTimeDissassemble(a, nn)
+{
+	var dissassembledInstruction = formatInstruction(a, nn);
+	if (dissassembledInstruction == undefined)
+	{
+		if ((a & 0xF0) == 0x20)
+		{
+			var op  = (a <<  8) | nn;
+			var nnn = op & 0xFFF;
+			return "Gosub " + " " + hexFormat(nnn) + " " + getLabel(nnn);
+		}
+		else
+			return "undefined";
+	}
+	var undefIndex = dissassembledInstruction.indexOf("undefined")
+	if (undefIndex != -1)
+	{
+		var op  = (a <<  8) | nn;
+		var nnn = op & 0xFFF;
+		return dissassembledInstruction.substring(0,undefIndex) + " " + hexFormat(nnn) + " " + getLabel(nnn);
+	}
+	return dissassembledInstruction;
 }
 
 function clearBreakpoint() {
