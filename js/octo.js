@@ -820,22 +820,40 @@ function haltBreakpoint(breakName) {
 	}
 
 	var exregdump = "";
-	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
-	var memcap = emulator.enableXO == true ? 0xFFFF : 0xFFF;
-	exregdump += "<br>Memory space: " + memcap;
 
-	for (var mem = emulator.pc - 4; mem <= emulator.pc + 4; mem += 2)
+	// Compressed memory view:
+	exregdump += "PC: " + hexFormat(emulator.pc,4).slice(2) + " I: " + hexFormat(emulator.i,4).slice(2) + "<br>";
+	for(var k = 0; k <= 0xF; k++) {
+		var hex = k.toString(16).toUpperCase();
+		exregdump += hexFormat(emulator.v[k],2).slice(2) + " ";
+		if (k == 7 || k == 0xF)
+			exregdump += "<br>";
+	}	
+
+	// Dissassemble commands around the PC value
+	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
+	// Set this based on emulator.enableXO
+	var memcap = emulator.enableXO == true ? 0xFFFF : 0xFFF;
+	memlo = emulator.pc - 6;
+	memhi = emulator.pc + 6;
+	if (memlo < 0) memlo = 0;
+	if (memhi >= memcap) memhi = memcap - 1;
+	for (var mem = memlo; mem <= memhi; mem += 2)
 	{
 		if (mem == emulator.pc)
 			exregdump += "<span class='memhighlight'>";
 		var a = emulator.m[mem];
 		var nn = emulator.m[mem+1];
-		var thisHex = hexFormat(a) + hexFormat(nn).slice(2)
-		exregdump += "<br>" + thisHex + ": " + realTimeDissassemble(a, nn);
+		var thisHex = "";
+		//thisHex += hexFormat(mem,4).slice(2) + ": " +
+		thisHex += hexFormat(a).slice(2) + hexFormat(nn).slice(2)
+		exregdump += "<br>" + thisHex + " " + realTimeDissassemble(a, nn);
 		if (mem == emulator.pc)
 			exregdump += "</span>";
 	}
 
+	// Display the memory cap:
+	//exregdump += "<br><br>Memory space: " + memcap;
 	// New memdump stuff.
 	var memboxdump = "";
 	memboxdump += '<br><table class="memdump"><tr><td>addr</td><td>data</td></tr>\n';
@@ -916,26 +934,17 @@ function scrollI()
 
 function realTimeDissassemble(a, nn)
 {
-	var dissassembledInstruction = formatInstruction(a, nn);
-	if (dissassembledInstruction == undefined)
-	{
-		if ((a & 0xF0) == 0x20)
-		{
-			var op  = (a <<  8) | nn;
-			var nnn = op & 0xFFF;
-			return "Gosub " + " " + hexFormat(nnn) + " " + getLabel(nnn);
-		}
-		else
-			return "undefined";
-	}
-	var undefIndex = dissassembledInstruction.indexOf("undefined")
-	if (undefIndex != -1)
-	{
-		var op  = (a <<  8) | nn;
-		var nnn = op & 0xFFF;
-		return dissassembledInstruction.substring(0,undefIndex) + " " + hexFormat(nnn) + " " + getLabel(nnn);
-	}
+	var dissassembledInstruction = formatInstruction(a, nn, realTimeDissassebmlyLabel);
+	
+	if ((a & 0xF0) == 0x20)
+		dissassembledInstruction = "Gosub " + dissassembledInstruction;
+
 	return dissassembledInstruction;
+}
+
+function realTimeDissassebmlyLabel(nnn)
+{
+	return hexFormat(nnn) + " " + getLabel(nnn);
 }
 
 function clearBreakpoint() {

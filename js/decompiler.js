@@ -33,7 +33,7 @@ var lnames      = {}; // map<address, name>
 var snames      = {}; // map<address, name>
 var nnames      = {}; // map<address, name>
 
-function formatInstruction(a, nn) {
+function formatInstruction(a, nn, labelFunction) {
 	// convert a pair of bytes representing an instruction
 	// into a string of the equivalent octo statement.
 	var op  = (a <<  8) | nn;
@@ -55,8 +55,8 @@ function formatInstruction(a, nn) {
 	if (op == 0x00FD)           { return "exit"; } // schip
 	if (op == 0x00FE)           { return "lores"; } // schip
 	if (op == 0x00FF)           { return "hires"; } // schip
-	if (o == 0x1)               { return "jump " + lnames[nnn]; }
-	if (o == 0x2)               { return snames[nnn]; }
+	if (o == 0x1)               { return "jump " + labelFunction(nnn); }
+	if (o == 0x2)               { return labelFunction(nnn); }
 	if (o == 0x3)               { return "if " + vx + " != " + numericFormat(nn) + " then"; }
 	if (o == 0x4)               { return "if " + vx + " == " + numericFormat(nn) + " then"; }
 	if (o == 0x5 && n == 0x0)   { return "if " + vx + " != " + vy + " then"; }
@@ -74,8 +74,8 @@ function formatInstruction(a, nn) {
 	if (o == 0x8 && n == 0x7)   { return vx + " =- " + vy; }
 	if (o == 0x8 && n == 0xE)   { return vx + " <<= " + vy; }
 	if (o == 0x9 && n == 0x0)   { return "if " + vx + " == " + vy + " then"; }
-	if (o == 0xA)               { return "i := " + lnames[nnn]; }
-	if (o == 0xB)               { return "jump0 " + lnames[nnn]; }
+	if (o == 0xA)               { return "i := " + labelFunction(nnn); }
+	if (o == 0xB)               { return "jump0 " + labelFunction(nnn); }
 	if (o == 0xC)               { return vx + " := random " + maskFormat(nn, 2); }
 	if (o == 0xD)               { return "sprite " + vx + " " + vy + " " + numericFormat(n); }
 	if (o == 0xE && nn == 0x9E) { return "if " + vx + " -key then"; }
@@ -103,6 +103,14 @@ function formatInstruction(a, nn) {
 		return "native " + ((nnn in nnames) ? nnames[nnn] : hexFormat(nnn));
 	}
 	return hexFormat(a) + " " + hexFormat(nn) + " # bad opcode?";
+}
+
+function retrieveLabelFromDissassembledCode(nnn)
+{
+	var result = lnames[nnn];
+	if (result == undefined)
+		result = snames[nnn];
+	return result;
 }
 
 function formatNative(addr, prefix) {
@@ -796,7 +804,7 @@ function formatProgram(programSize) {
 				x+=3;
 			}
 			else {
-				ret += (indent + formatInstruction(program[a], program[a+1]) + singleResult(a) + "\n");
+				ret += (indent + formatInstruction(program[a], program[a+1], retrieveLabelFromDissassembledCode) + singleResult(a) + "\n");
 				x++;
 			}
 		}
@@ -806,7 +814,7 @@ function formatProgram(programSize) {
 		else if (type[a] == "smc" && (type[a+1] == "smc" || type[a+1] == "code")) {
 			ret += indent;
 			ret += hexFormat(program[a]) + " " + hexFormat(program[a+1])
-			ret += " # smc? " + formatInstruction(program[a], program[a+1]) + "\n";
+			ret += " # smc? " + formatInstruction(program[a], program[a+1], retrieveLabelFromDissassembledCode) + "\n";
 			x++;
 		}
 		else {
