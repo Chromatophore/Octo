@@ -289,6 +289,11 @@
 		<div class="debugger" id="registerView" style="display:none">
 			register display.
 		</div>
+		<div class="exdebugger" id="exRegisterView" style="display:none">
+			<div id="exview">extended register display.</div>
+			<br /><div><div class="memscroll memhighlight" onclick="scrollPC()">pc</div>&nbsp;<div class="memscroll ihighlight" onclick="scrollI()">i</div></div>
+			<code class="memorybox" id="memorybox" onclick="toggleCodeScroll()"></code>
+		</div>
 	</div>
 
 	<div class="lightbox" style="display:none" id="decompileWork">

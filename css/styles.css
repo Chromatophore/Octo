@@ -116,13 +116,50 @@ div.debugger {
 	width: 300px;
 }
 #memorybox {
-    height: 120px;
+    height: 300px;
     overflow: auto;
     position: relative;
     resize: vertical;
 }
 code {
     display: block;
-    margin: 10px;
+    margin: 10px 0px;
     font-family: monospace;
+}
+div.exdebugger {
+	width: 300px;
+}
+div.exdebugger {
+	position: fixed;
+	top: 100px;
+	right: 40px;
+	font-family: monospace;
+	color: white;
+}
+table.exdebugger {
+	font-family: monospace;
+	color: white;
+}
+.memhighlight {
+	text-decoration: underline;
+	font-weight: bold;
+}
+.ihighlight {
+	text-decoration: underline;
+	font-weight: bold;
+	font-style: italic;
+	color: red;
+}
+.memscroll {
+	display: inline-block;
+	width: 15px;
+    text-align: center;
+    border: 1px solid white;
+    padding: 2px;
+}
+#memorybox {
+	    border: 1px solid black;
+}
+#memorybox.noscroll {
+	    border: 1px dashed white;
 }
