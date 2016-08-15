@@ -828,7 +828,7 @@ function haltBreakpoint(breakName) {
 		exregdump += hexFormat(emulator.v[k],2).slice(2) + " ";
 		if (k == 7 || k == 0xF)
 			exregdump += "<br>";
-	}	
+	}
 
 	// Dissassemble commands around the PC value
 	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
@@ -868,6 +868,7 @@ function haltBreakpoint(breakName) {
 			memboxdump += "<td>";
 		}
 
+
 		var highlight = 0;
 		if (addr == emulator.pc)
 		{
@@ -886,7 +887,13 @@ function haltBreakpoint(breakName) {
 		}
 
 		var data = emulator.m[addr];
-		memboxdump += data == undefined ? "xx" : hexFormat(emulator.m[addr]).slice(2)
+		var value = data == undefined ? "xx" : hexFormat(emulator.m[addr]).slice(2);
+
+		memboxdump += '<span id="edit' + addr + '" style="display: none"><textarea class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">';
+		memboxdump += value;
+		memboxdump += '</textarea></span><span id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
+		memboxdump += value;
+		memboxdump += "</span>";
 
 		if (highlight == 1)
 		{
@@ -920,6 +927,25 @@ function haltBreakpoint(breakName) {
 	}
 }
 
+function memEditEnable(addr)
+{
+	console.log(addr);
+	document.getElementById("edit" + addr).style.display='inline';
+	document.getElementById("txt" + addr).style.display='none';
+	document.getElementById("addr" + addr).focus();
+}
+
+function memEdit(addr)
+{
+	var memtext = document.getElementById(addr);
+	var newval = memtext.value;
+	addr = addr.substring(4);
+	emulator.m[addr] = parseInt(newval, 16);
+	document.getElementById("txt" + addr).innerHTML = newval;
+	document.getElementById("edit" + addr).style.display ='none';
+	document.getElementById("txt" + addr).style.display ='inline';
+}
+
 function scrollPC()
 {
 	var redmem = document.getElementById("pcmem");
@@ -935,7 +961,7 @@ function scrollI()
 function realTimeDissassemble(a, nn)
 {
 	var dissassembledInstruction = formatInstruction(a, nn, realTimeDissassebmlyLabel);
-	
+
 	if ((a & 0xF0) == 0x20)
 		dissassembledInstruction = "Gosub " + dissassembledInstruction;
 
@@ -991,11 +1017,13 @@ function toggleBinaryTools() {
 
 function toggleCodeScroll() {
 	var membox = document.getElementById("memorybox");
-	if (membox.className == "memorybox")
+	if (membox.className.includes("noscroll"))
 	{
-		membox.className = "memorybox noscroll";
+		var classes = membox.className.split(" ");
+		classes.splice(classes.indexOf("noscroll"), 1);
+		membox.className = classes.join(" ");
 	} else {
-		membox.className = "memorybox";
+		membox.className += " noscroll";
 	}
 }
 
