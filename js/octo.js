@@ -30,10 +30,13 @@ function decimalFormat(num) {
 	return dec;
 }
 
-function hexFormat(num, pad = 2) {
+function hexFormat(num, pad = 2, preslice = false) {
 	var hex  = num.toString(16).toUpperCase();
 	var pad0 = zeroPad(hex.length, pad);
-	return "0x" + pad0 + hex;
+	if (preslice)
+		return pad0 + hex;
+	else
+		return "0x" + pad0 + hex;
 }
 
 function binaryFormat(num) {
@@ -269,11 +272,19 @@ function keyUp(event) {
 			haltBreakpoint("user interrupt");
 		}
 	}
-	if (event.keyCode == 79) { // o
+	if (event.keyCode == 79 || event.keyCode == 80) { // o or p
 		if (emulator.breakpoint) {
-			emulator.tick();
+			if (event.keyCode == 80)	// p will clear the delay register
+				emulator.dt = 0;
+
+			if (emulator.waiting == false) // if the emulator is waiting for key input, do not tick
+				emulator.tick();
+
 			renderDisplay(emulator);
-			haltBreakpoint("single stepping");
+
+			// display an appropriate message based on situation:
+			var breaksting = emulator.waiting ? "waiting for input" : "single stepping";
+			haltBreakpoint(breaksting);
 		}
 	}
 	if (emulator.waiting) {
@@ -814,7 +825,7 @@ function haltBreakpoint(breakName) {
 			}
 			regdump += "</td>";
 		} else {
-			regdump += "<tr><td></td><td></td>"
+			regdump += "<tr><td></td><td></td>";
 		}
 		regdump += "<td><pre>" + escapeHtml(dbg.lines[line]) + "</pre></td></tr>\n";
 	}
@@ -822,10 +833,12 @@ function haltBreakpoint(breakName) {
 	var exregdump = "";
 
 	// Compressed memory view:
-	exregdump += "PC: " + hexFormat(emulator.pc,4).slice(2) + " I: " + hexFormat(emulator.i,4).slice(2) + "<br>";
+	exregdump += "PC: " + hexFormat(emulator.pc,4,true) + " I: " + hexFormat(emulator.i,4,true);
+	exregdump += " <span onClick=\"clearDelay();\">D: " + hexFormat(emulator.dt,2,true) + "</span>";
+	exregdump += "<br>";
 	for(var k = 0; k <= 0xF; k++) {
 		var hex = k.toString(16).toUpperCase();
-		exregdump += hexFormat(emulator.v[k],2).slice(2) + " ";
+		exregdump += hexFormat(emulator.v[k],2,true) + " ";
 		if (k == 7 || k == 0xF)
 			exregdump += "<br>";
 	}
@@ -846,7 +859,7 @@ function haltBreakpoint(breakName) {
 		var nn = emulator.m[mem+1];
 		var thisHex = "";
 		//thisHex += hexFormat(mem,4).slice(2) + ": " +
-		thisHex += hexFormat(a).slice(2) + hexFormat(nn).slice(2)
+		thisHex += hexFormat(a,2,true) + hexFormat(nn,2,true);
 		exregdump += "<br>" + thisHex + " " + realTimeDissassemble(a, nn);
 		if (mem == emulator.pc)
 			exregdump += "</span>";
@@ -887,7 +900,7 @@ function haltBreakpoint(breakName) {
 		}
 
 		var data = emulator.m[addr];
-		var value = data == undefined ? "xx" : hexFormat(emulator.m[addr]).slice(2);
+		var value = data == undefined ? "xx" : hexFormat(data,2,true);
 
 		memboxdump += '<span id="edit' + addr + '" style="display: none"><textarea class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">';
 		memboxdump += value;
@@ -905,7 +918,7 @@ function haltBreakpoint(breakName) {
 		}
 
 		wrap++;
-		if (wrap == 8)
+		if (wrap == 0x10)
 		{
 			memboxdump += "</td>";
 			memboxdump += '</tr>';
@@ -944,6 +957,11 @@ function memEdit(addr)
 	document.getElementById("txt" + addr).innerHTML = newval;
 	document.getElementById("edit" + addr).style.display ='none';
 	document.getElementById("txt" + addr).style.display ='inline';
+}
+
+function clearDelay()
+{
+	emulator.dt = 0;
 }
 
 function scrollPC()
