@@ -883,6 +883,7 @@ function haltBreakpoint(breakName) {
 
 
 		var highclass = "";
+		var highid = "pcmem";
 		var highlight = 0;
 		if (addr == emulator.pc)
 		{
@@ -897,12 +898,13 @@ function haltBreakpoint(breakName) {
 			if (highlight == 0)
 			{
 				highlight = 3;
+				highid = "imem";
 			}
 		}
 
 		if (highlight != 0)
 		{
-			memboxdump += '<span id="pcmem" class="' + highclass + '">';
+			memboxdump += '<span id="' + highid + '" class="' + highclass + '">';
 		}
 
 		var data = emulator.m[addr];
