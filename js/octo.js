@@ -56,7 +56,7 @@ function zeroPad(strLen, byteLength) {
 
 
 function display(rom) {
-	return "[" + (rom.map(hexFormat).join(", ")) + "]";
+	return "[" + (rom.map(function(x) { return hexFormat(x); }).join(", ")) + "]";
 }
 
 ////////////////////////////////////
