@@ -836,19 +836,19 @@ function haltBreakpoint(breakName) {
 	exregdump += "PC: " + hexFormat(emulator.pc,4,true) + " I: " + hexFormat(emulator.i,4,true);
 	exregdump += " <span onClick=\"clearDelay();\">D: " + hexFormat(emulator.dt,2,true) + "</span>";
 	exregdump += "<br>";
+	exregdump += "<table class=\"memdump\"><tr>"
 	for(var k = 0; k <= 0xF; k++) {
 		var hex = k.toString(16).toUpperCase();
 		var value = hexFormat(emulator.v[k],2,true);
 		var addr = "R" + k;
-		exregdump += '<span id="edit' + addr + '" style="display: none"><textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">';
+		exregdump += '<td id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
 		exregdump += value;
-		exregdump += '</textarea></span><span id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
-		exregdump += value;
-		exregdump += "</span>&nbsp;";
+		exregdump += "</td>";
 
-		if (k == 7 || k == 0xF)
-			exregdump += "<br>";
+		if (k == 7)
+			exregdump += "</tr><tr>";
 	}
+	exregdump += "</tr></table>"
 
 	// Dissassemble commands around the PC value
 	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
@@ -876,7 +876,7 @@ function haltBreakpoint(breakName) {
 	//exregdump += "<br><br>Memory space: " + memcap;
 	// New memdump stuff.
 	var memboxdump = "";
-	memboxdump += '<br><table class="memdump"><tr><td>addr</td><td>data</td></tr>\n';
+	memboxdump += '<br><table class="memdump"><tr><td>addr</td><td colspan="16">data</td></tr>\n';
 	//regdump += "<br>";
 	var wrap = 0;
 	var color = '';
@@ -885,9 +885,7 @@ function haltBreakpoint(breakName) {
 		if (wrap == 0) {
 			memboxdump += '<tr>';
 			memboxdump += "<td>" + hexFormat(addr, 4) + ":</td>";
-			memboxdump += "<td>";
 		}
-
 
 		var highclass = "";
 		var highid = "pcmem";
@@ -909,6 +907,8 @@ function haltBreakpoint(breakName) {
 			}
 		}
 
+		memboxdump += '<td id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
+
 		if (highlight != 0)
 		{
 			memboxdump += '<span id="' + highid + '" class="' + highclass + '">';
@@ -917,28 +917,20 @@ function haltBreakpoint(breakName) {
 		var data = emulator.m[addr];
 		var value = data == undefined ? "xx" : hexFormat(data,2,true);
 
-		memboxdump += '<span id="edit' + addr + '" style="display: none"><textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">';
 		memboxdump += value;
-		memboxdump += '</textarea></span><span id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
-		memboxdump += value;
-		memboxdump += "</span>";
 
-		if (highlight == 1)
+		if (highlight != 0)
 		{
-			memboxdump += ' </span>';
-		} else if (highlight == 2 || highlight == 3) {
-			memboxdump += '</span> ';
-		} else {
-			memboxdump += ' ';
+			memboxdump += '</span>';
 		}
+
+		memboxdump += "</td>";
 
 		wrap++;
 		if (wrap == 0x10)
 		{
-			memboxdump += "</td>";
 			memboxdump += '</tr>';
 			wrap = 0;
-			//regdump += "<br>";
 		}
 	}
 	memboxdump += "</table><br>";
@@ -957,9 +949,12 @@ function haltBreakpoint(breakName) {
 
 function memEditEnable(addr)
 {
+	var txt = document.getElementById("txt" + addr);
 	var memtext = document.getElementById("addr" + addr);
-	document.getElementById("edit" + addr).style.display='inline';
-	document.getElementById("txt" + addr).style.display='none';
+	if (memtext != null) { return; }
+	var oldmem = txt.innerText;
+	txt.innerHTML = '<textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+	memtext = document.getElementById("addr" + addr);
 	memtext.focus();
 	memtext.select();
 }
@@ -973,18 +968,26 @@ function memEdit(addr)
 	{
 		register = true;
 	}
-	var txt = document.getElementById("txt" + addr);
-	var edit = document.getElementById("edit" + addr);
+	var oldval;
+	if (!register)
+	{
+		oldval = hexFormat(emulator.m[addr], 2, true);
+	} else {
+		oldval = hexFormat(emulator.v[addr.substring(1)], 2, true);
+	}
 	var newval = memtext.value.toUpperCase();
 	if (newval == "")
 	{
-		newval = txt.innerText;
+		newval = oldval;
+	}
+	if (isNaN(parseInt(newval, 16)))
+	{
+		newval = oldval;
 	}
 	if (newval.toString().length < 2)
 	{
 		newval = "0" + newval;
 	}
-	memtext.value = newval;
 	if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= 255)
 	{
 		if (!register)
@@ -993,12 +996,10 @@ function memEdit(addr)
 		} else {
 			emulator.v[addr.substring(1)] = parseInt(newval, 16);
 		}
-		txt.innerText = newval;
 	} else {
-		memtext.value = txt.innerText;
+		newval = oldval;
 	}
-	edit.style.display ='none';
-	txt.style.display ='inline';
+	document.getElementById("txt" + addr).innerHTML = newval;
 }
 
 function clearDelay()
