@@ -884,7 +884,20 @@ function buildMemBox(memcap)
 {
 	var membox = document.getElementById("memorybox");
 
-	if (membox.innerText == "")
+	var memmax = emulator.m.length;
+	if (emulator.pc + 2 > memmax)
+	{
+		memmax = emulator.pc + 2;
+	}
+	if (emulator.i + 1 > memmax)
+	{
+		memmax = emulator.i + 1;
+	}
+	if (memmax % 256 != 0)
+	{
+		memmax = memmax - (memmax % 256) + 256;
+	}
+	if (membox.innerText == "" || document.getElementsByClassName("membyte").length != memmax)
 	{
 		// Display the memory cap:
 		//exregdump += "<br><br>Memory space: " + memcap;
@@ -895,7 +908,8 @@ function buildMemBox(memcap)
 		var wrap = 0;
 		var color = '';
 		//for (var addr = memlo; addr < memhi; addr++) {
-		for (var addr = 0; addr <= memcap; addr++) {
+		//for (var addr = 0; addr <= memcap; addr++) {
+		for (var addr = 0; addr < memmax; addr++) {
 			if (wrap == 0) {
 				memboxdump += '<tr>';
 				memboxdump += "<td>" + hexFormat(addr, 4) + ":</td>";
@@ -912,7 +926,7 @@ function buildMemBox(memcap)
 				highclass += "imem ihighlight ";
 			}
 
-			memboxdump += '<td class="' + highclass + '" id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
+			memboxdump += '<td class="membyte ' + highclass + '" id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
 
 			var data = emulator.m[addr];
 			var value = data == undefined ? "xx" : hexFormat(data,2,true);
@@ -933,31 +947,43 @@ function buildMemBox(memcap)
 		membox.innerHTML = memboxdump;
 	} else {
 		var pcmem = document.getElementsByClassName("pcmem");
-		if (pcmem != null)
+		if (pcmem.length > 0)
 		{
-			pcmem[0].className = "";
+			pcmem[0].className = "membyte";
 		}
 		pcmem = document.getElementsByClassName("pcmem");
-		if (pcmem != null)
+		if (pcmem.length > 0)
 		{
-			pcmem[0].className = "";
+			pcmem[0].className = "membyte";
 		}
 		pcmem = document.getElementsByClassName("imem");
-		if (pcmem != null)
+		if (pcmem.length > 0)
 		{
-			pcmem[0].className = "";
+			pcmem[0].className = "membyte";
 		}
 
-		document.getElementById("txt" + emulator.pc).className += "pcmem memhighlight ";
-		document.getElementById("txt" + (emulator.pc + 1)).className += "pcmem memhighlight ";
-		document.getElementById("txt" + emulator.i).className += "imem ihighlight ";
+		var element = document.getElementById("txt" + emulator.pc);
+		if (element != null)
+		{
+			element.className += " pcmem memhighlight ";
+		}
+		element = document.getElementById("txt" + (emulator.pc + 1));
+		if (element != null)
+		{
+			element.className += " pcmem memhighlight ";
+		}
+		element = document.getElementById("txt" + emulator.i)
+		if (element != null)
+		{
+			element.className += " imem ihighlight ";
+		}
 
 		var start = emulator.i - 32;
 		var end = emulator.i + 32;
 		for (var i = start; i <= end; i++) {
-			var data = emulator.m[(memcap + i) % memcap];
+			var data = emulator.m[(memmax + i) % memmax];
 			var value = data == undefined ? "xx" : hexFormat(data,2,true);
-			document.getElementById("txt" + (memcap + i) % memcap).innerText = value;
+			document.getElementById("txt" + (memmax + i) % memmax).innerText = value;
 		};
 	}
 
@@ -995,6 +1021,8 @@ function memEdit(addr)
 		if (oldval != undefined)
 		{
 			oldval = hexFormat(oldval, 2, true);
+		} else {
+			oldval = "00";
 		}
 	} else {
 		oldval = hexFormat(emulator.v[addr.substring(1)], 2, true);
@@ -1040,8 +1068,13 @@ function scrollPC()
 {
 	var redmem = document.getElementsByClassName("pcmem");
 	var membox = document.getElementById("memorybox");
-	redmem[0].scrollIntoView();
-	membox.scrollTop -= membox.clientHeight * 0.5;
+	if (redmem[0] != null)
+	{
+		redmem[0].scrollIntoView();
+		membox.scrollTop -= membox.clientHeight * 0.5;
+	} else {
+		console.log("Can't find PC to scroll to!");
+	}
 }
 
 function scrollI()
@@ -1052,8 +1085,13 @@ function scrollI()
 		redmem = document.getElementsByClassName("pcmem");
 	}
 	var membox = document.getElementById("memorybox");
-	redmem[0].scrollIntoView();
-	membox.scrollTop -= membox.clientHeight * 0.5;
+	if (redmem[0] != null)
+	{
+		redmem[0].scrollIntoView();
+		membox.scrollTop -= membox.clientHeight * 0.5;
+	} else {
+		console.log("Can't find I to scroll to!");
+	}
 }
 
 function realTimeDissassemble(a, nn)
@@ -1121,10 +1159,10 @@ function toggleCodeScroll() {
 		var classes = membox.className.split(" ");
 		classes.splice(classes.indexOf("noscroll"), 1);
 		membox.className = classes.join(" ");
-		scrolllock.innerHTML = "&#128274;";
+		scrolllock.innerHTML = "&#128275;";
 	} else {
 		membox.className += " noscroll";
-		scrolllock.innerHTML = "&#128275;";
+		scrolllock.innerHTML = "&#128274;";
 	}
 }
 
