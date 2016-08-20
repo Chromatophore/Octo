@@ -251,6 +251,28 @@ function keyDown(event) {
 				keyElement.className += ' active';
 			}
 		}
+		if (event.keyCode == 76) // l
+		{
+			var tid = setInterval(function(){
+				if (emulator.keys[76])
+				{
+					if (emulator.breakpoint) {
+						if (emulator.waiting == false) // if the emulator is waiting for key input, do not tick
+							emulator.tick();
+
+						renderDisplay(emulator);
+
+						// display an appropriate message based on situation:
+						var breaksting = emulator.waiting ? "waiting for input" : "single stepping";
+						haltBreakpoint(breaksting);
+					} else {
+						clearInterval(tid);
+					}
+				} else {
+					clearInterval(tid);
+				}
+			}, 100);
+		}
 	}
 }
 
