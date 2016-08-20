@@ -838,7 +838,14 @@ function haltBreakpoint(breakName) {
 	exregdump += "<br>";
 	for(var k = 0; k <= 0xF; k++) {
 		var hex = k.toString(16).toUpperCase();
-		exregdump += hexFormat(emulator.v[k],2,true) + " ";
+		var value = hexFormat(emulator.v[k],2,true);
+		var addr = "R" + k;
+		exregdump += '<span id="edit' + addr + '" style="display: none"><textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">';
+		exregdump += value;
+		exregdump += '</textarea></span><span id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
+		exregdump += value;
+		exregdump += "</span>&nbsp;";
+
 		if (k == 7 || k == 0xF)
 			exregdump += "<br>";
 	}
@@ -910,7 +917,7 @@ function haltBreakpoint(breakName) {
 		var data = emulator.m[addr];
 		var value = data == undefined ? "xx" : hexFormat(data,2,true);
 
-		memboxdump += '<span id="edit' + addr + '" style="display: none"><textarea class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">';
+		memboxdump += '<span id="edit' + addr + '" style="display: none"><textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">';
 		memboxdump += value;
 		memboxdump += '</textarea></span><span id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
 		memboxdump += value;
@@ -950,32 +957,42 @@ function haltBreakpoint(breakName) {
 
 function memEditEnable(addr)
 {
-	console.log(addr);
+	var memtext = document.getElementById("addr" + addr);
 	document.getElementById("edit" + addr).style.display='inline';
 	document.getElementById("txt" + addr).style.display='none';
-	document.getElementById("addr" + addr).focus();
+	memtext.focus();
+	memtext.select();
 }
 
 function memEdit(addr)
 {
 	var memtext = document.getElementById(addr);
 	addr = addr.substring(4);
+	var register = false;
+	if (addr.substring(0, 1) == "R")
+	{
+		register = true;
+	}
 	var txt = document.getElementById("txt" + addr);
 	var edit = document.getElementById("edit" + addr);
-	var newval = memtext.value;
+	var newval = memtext.value.toUpperCase();
 	if (newval == "")
 	{
 		newval = txt.innerText;
-		memtext.value = newval;
 	}
 	if (newval.toString().length < 2)
 	{
 		newval = "0" + newval;
-		memtext.value = newval;
 	}
+	memtext.value = newval;
 	if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= 255)
 	{
-		emulator.m[addr] = parseInt(newval, 16);
+		if (!register)
+		{
+			emulator.m[addr] = parseInt(newval, 16);
+		} else {
+			emulator.v[addr.substring(1)] = parseInt(newval, 16);
+		}
 		txt.innerText = newval;
 	} else {
 		memtext.value = txt.innerText;
