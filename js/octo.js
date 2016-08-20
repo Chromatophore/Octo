@@ -141,6 +141,7 @@ function reset() {
 	window.clearInterval(intervalHandle);
 	clearBreakpoint();
 	stopAudio();
+	document.getElementById("memorybox").innerHTML = "";
 }
 
 function share() {
@@ -782,7 +783,6 @@ function haltBreakpoint(breakName) {
 	var regs   = document.getElementById("registerView");
 	var exregs   = document.getElementById("exRegisterView");
 	var exview   = document.getElementById("exview");
-	var membox = document.getElementById("memorybox");
 	button.style.display = "inline";
 	regs.style.display = "inline";
 	exregs.style.display = "inline";
@@ -872,75 +872,95 @@ function haltBreakpoint(breakName) {
 			exregdump += "</span>";
 	}
 
-	// Display the memory cap:
-	//exregdump += "<br><br>Memory space: " + memcap;
-	// New memdump stuff.
-	var memboxdump = "";
-	memboxdump += '<br><table class="memdump"><tr><td>addr</td><td colspan="16">data</td></tr>\n';
-	//regdump += "<br>";
-	var wrap = 0;
-	var color = '';
-	//for (var addr = memlo; addr < memhi; addr++) {
-	for (var addr = 0; addr <= memcap; addr++) {
-		if (wrap == 0) {
-			memboxdump += '<tr>';
-			memboxdump += "<td>" + hexFormat(addr, 4) + ":</td>";
-		}
-
-		var highclass = "";
-		var highid = "pcmem";
-		var highlight = 0;
-		if (addr == emulator.pc)
-		{
-			highclass += "memhighlight ";
-			highlight = 1;
-		} else if (addr == emulator.pc + 1) {
-			highclass += "memhighlight ";
-			highlight = 2;
-		}
-		if (addr == emulator.i) {
-			highclass += "ihighlight ";
-			if (highlight == 0)
-			{
-				highlight = 3;
-				highid = "imem";
-			}
-		}
-
-		memboxdump += '<td id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
-
-		if (highlight != 0)
-		{
-			memboxdump += '<span id="' + highid + '" class="' + highclass + '">';
-		}
-
-		var data = emulator.m[addr];
-		var value = data == undefined ? "xx" : hexFormat(data,2,true);
-
-		memboxdump += value;
-
-		if (highlight != 0)
-		{
-			memboxdump += '</span>';
-		}
-
-		memboxdump += "</td>";
-
-		wrap++;
-		if (wrap == 0x10)
-		{
-			memboxdump += '</tr>';
-			wrap = 0;
-		}
-	}
-	memboxdump += "</table><br>";
-
+	buildMemBox(memcap);
 
 	regs.innerHTML = regdump;
 	exview.innerHTML = exregdump;
-	membox.innerHTML = memboxdump;
 	emulator.breakpoint = true;
 	curBreakName = breakName;
+}
+
+function buildMemBox(memcap)
+{
+	var membox = document.getElementById("memorybox");
+
+	if (membox.innerText == "")
+	{
+		// Display the memory cap:
+		//exregdump += "<br><br>Memory space: " + memcap;
+		// New memdump stuff.
+		var memboxdump = "";
+		memboxdump += '<br><table class="memdump"><tr><td>addr</td><td colspan="16">data</td></tr>\n';
+		//regdump += "<br>";
+		var wrap = 0;
+		var color = '';
+		//for (var addr = memlo; addr < memhi; addr++) {
+		for (var addr = 0; addr <= memcap; addr++) {
+			if (wrap == 0) {
+				memboxdump += '<tr>';
+				memboxdump += "<td>" + hexFormat(addr, 4) + ":</td>";
+			}
+
+			var highclass = "";
+			if (addr == emulator.pc)
+			{
+				highclass += "pcmem memhighlight ";
+			} else if (addr == emulator.pc + 1) {
+				highclass += "pcmem memhighlight ";
+			}
+			if (addr == emulator.i) {
+				highclass += "imem ihighlight ";
+			}
+
+			memboxdump += '<td class="' + highclass + '" id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
+
+			var data = emulator.m[addr];
+			var value = data == undefined ? "xx" : hexFormat(data,2,true);
+
+			memboxdump += value;
+
+			memboxdump += "</td>";
+
+			wrap++;
+			if (wrap == 0x10)
+			{
+				memboxdump += '</tr>';
+				wrap = 0;
+			}
+		}
+		memboxdump += "</table><br>";
+
+		membox.innerHTML = memboxdump;
+	} else {
+		var pcmem = document.getElementsByClassName("pcmem");
+		if (pcmem != null)
+		{
+			pcmem[0].className = "";
+		}
+		pcmem = document.getElementsByClassName("pcmem");
+		if (pcmem != null)
+		{
+			pcmem[0].className = "";
+		}
+		pcmem = document.getElementsByClassName("imem");
+		if (pcmem != null)
+		{
+			pcmem[0].className = "";
+		}
+
+		document.getElementById("txt" + emulator.pc).className += "pcmem memhighlight ";
+		document.getElementById("txt" + (emulator.pc + 1)).className += "pcmem memhighlight ";
+		document.getElementById("txt" + emulator.i).className += "imem ihighlight ";
+
+		var start = emulator.i - 32;
+		var end = emulator.i + 32;
+		for (var i = start; i <= end; i++) {
+			var data = emulator.m[(memcap + i) % memcap];
+			var value = data == undefined ? "xx" : hexFormat(data,2,true);
+			document.getElementById("txt" + (memcap + i) % memcap).innerText = value;
+		};
+	}
+
 	if (membox.className == "memorybox")
 	{
 		scrollPC();
@@ -971,33 +991,42 @@ function memEdit(addr)
 	var oldval;
 	if (!register)
 	{
-		oldval = hexFormat(emulator.m[addr], 2, true);
+		oldval = emulator.m[addr];
+		if (oldval != undefined)
+		{
+			oldval = hexFormat(oldval, 2, true);
+		}
 	} else {
 		oldval = hexFormat(emulator.v[addr.substring(1)], 2, true);
 	}
-	var newval = memtext.value.toUpperCase();
-	if (newval == "")
+	if (oldval != undefined)
 	{
-		newval = oldval;
-	}
-	if (isNaN(parseInt(newval, 16)))
-	{
-		newval = oldval;
-	}
-	if (newval.toString().length < 2)
-	{
-		newval = "0" + newval;
-	}
-	if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= 255)
-	{
-		if (!register)
+		var newval = memtext.value.toUpperCase();
+		if (newval == "")
 		{
-			emulator.m[addr] = parseInt(newval, 16);
+			newval = oldval;
+		}
+		if (isNaN(parseInt(newval, 16)))
+		{
+			newval = oldval;
+		}
+		if (newval.toString().length < 2)
+		{
+			newval = "0" + newval;
+		}
+		if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= 255)
+		{
+			if (!register)
+			{
+				emulator.m[addr] = parseInt(newval, 16);
+			} else {
+				emulator.v[addr.substring(1)] = parseInt(newval, 16);
+			}
 		} else {
-			emulator.v[addr.substring(1)] = parseInt(newval, 16);
+			newval = oldval;
 		}
 	} else {
-		newval = oldval;
+		newval = "xx";
 	}
 	document.getElementById("txt" + addr).innerHTML = newval;
 }
@@ -1009,21 +1038,21 @@ function clearDelay()
 
 function scrollPC()
 {
-	var redmem = document.getElementById("pcmem");
+	var redmem = document.getElementsByClassName("pcmem");
 	var membox = document.getElementById("memorybox");
-	redmem.scrollIntoView();
+	redmem[0].scrollIntoView();
 	membox.scrollTop -= membox.clientHeight * 0.5;
 }
 
 function scrollI()
 {
-	var redmem = document.getElementById("imem");
+	var redmem = document.getElementsByClassName("imem");
 	if (redmem == null)
 	{
-		redmem = document.getElementById("pcmem");
+		redmem = document.getElementsByClassName("pcmem");
 	}
 	var membox = document.getElementById("memorybox");
-	redmem.scrollIntoView();
+	redmem[0].scrollIntoView();
 	membox.scrollTop -= membox.clientHeight * 0.5;
 }
 
