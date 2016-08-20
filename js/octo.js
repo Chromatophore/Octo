@@ -959,12 +959,29 @@ function memEditEnable(addr)
 function memEdit(addr)
 {
 	var memtext = document.getElementById(addr);
-	var newval = memtext.value;
 	addr = addr.substring(4);
-	emulator.m[addr] = parseInt(newval, 16);
-	document.getElementById("txt" + addr).innerHTML = newval;
-	document.getElementById("edit" + addr).style.display ='none';
-	document.getElementById("txt" + addr).style.display ='inline';
+	var txt = document.getElementById("txt" + addr);
+	var edit = document.getElementById("edit" + addr);
+	var newval = memtext.value;
+	if (newval == "")
+	{
+		newval = txt.innerText;
+		memtext.value = newval;
+	}
+	if (newval.toString().length < 2)
+	{
+		newval = "0" + newval;
+		memtext.value = newval;
+	}
+	if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= 255)
+	{
+		emulator.m[addr] = parseInt(newval, 16);
+		txt.innerText = newval;
+	} else {
+		memtext.value = txt.innerText;
+	}
+	edit.style.display ='none';
+	txt.style.display ='inline';
 }
 
 function clearDelay()
@@ -1051,13 +1068,16 @@ function toggleBinaryTools() {
 
 function toggleCodeScroll() {
 	var membox = document.getElementById("memorybox");
+	var scrolllock = document.getElementById("memscrolllock");
 	if (membox.className.includes("noscroll"))
 	{
 		var classes = membox.className.split(" ");
 		classes.splice(classes.indexOf("noscroll"), 1);
 		membox.className = classes.join(" ");
+		scrolllock.innerHTML = "&#128274;";
 	} else {
 		membox.className += " noscroll";
+		scrolllock.innerHTML = "&#128275;";
 	}
 }
 

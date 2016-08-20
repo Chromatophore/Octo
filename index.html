@@ -291,8 +291,12 @@
 		</div>
 		<div class="exdebugger" id="exRegisterView" style="display:none">
 			<div id="exview">extended register display.</div>
-			<br /><div><div class="memscroll memhighlight" onclick="scrollPC()">pc</div>&nbsp;<div class="memscroll ihighlight" onclick="scrollI()">i</div></div>
-			<code class="memorybox" id="memorybox" onclick="toggleCodeScroll()"></code>
+			<br /><div>
+				<div class="memscroll memhighlight" onclick="scrollPC()">pc</div>&nbsp;
+				<div class="memscroll ihighlight" onclick="scrollI()">i</div>&nbsp;
+				<div id="memscrolllock" class="scrolllock" onclick="toggleCodeScroll()">&#128275;</div>
+			</div>
+			<code class="memorybox" id="memorybox"></code>
 		</div>
 	</div>
 
