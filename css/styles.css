@@ -176,6 +176,9 @@ table.exdebugger {
 	margin-right: -4px;
 	outline: none;
 }
+.memtext {
+	width: 30px;
+}
 .scrolllock {
 	display: inline-block;
 	width: 15px;

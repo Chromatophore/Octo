@@ -855,10 +855,10 @@ function haltBreakpoint(breakName) {
 	var exregdump = "";
 
 	// Compressed memory view:
-	exregdump += "PC: " + hexFormat(emulator.pc,4,true) + " I: " + hexFormat(emulator.i,4,true);
-	exregdump += " <span onClick=\"clearDelay();\">D: " + hexFormat(emulator.dt,2,true) + "</span>";
-	exregdump += "<br>";
-	exregdump += "<table class=\"memdump\"><tr>"
+	exregdump += "<table class=\"memdump\"><tr>";
+	exregdump += '<td>PC:</td><td colspan="2" id="txtP0" onclick="memEditEnable(\'P0\')">' + hexFormat(emulator.pc,4,true) + '</td><td>I:</td><td colspan="2" id="txtP1" onclick="memEditEnable(\'P1\')">' + hexFormat(emulator.i,4,true) + '</td>';
+	exregdump += '<td>D:</td><td id="txtP2" onclick="memEditEnable(\'P2\')">' + hexFormat(emulator.dt,2,true) + "</td>";
+	exregdump += "</tr><tr>";
 	for(var k = 0; k <= 0xF; k++) {
 		var hex = k.toString(16).toUpperCase();
 		var value = hexFormat(emulator.v[k],2,true);
@@ -1005,7 +1005,11 @@ function buildMemBox(memcap)
 		for (var i = start; i <= end; i++) {
 			var data = emulator.m[(memmax + i) % memmax];
 			var value = data == undefined ? "xx" : hexFormat(data,2,true);
-			document.getElementById("txt" + (memmax + i) % memmax).innerText = value;
+			var txt = document.getElementById("txt" + (memmax + i) % memmax);
+			if (txt != null)
+			{
+				txt.innerText = value;
+			}
 		};
 	}
 
@@ -1021,7 +1025,17 @@ function memEditEnable(addr)
 	var memtext = document.getElementById("addr" + addr);
 	if (memtext != null) { return; }
 	var oldmem = txt.innerText;
-	txt.innerHTML = '<textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+	if (addr.substring(0, 1) == "P")
+	{
+		if (addr.substring(1) == "2")
+		{
+			txt.innerHTML = '<textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+		} else {
+			txt.innerHTML = '<textarea maxlength="4" class="memtext memtext4" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+		}
+	} else {
+		txt.innerHTML = '<textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+	}
 	memtext = document.getElementById("addr" + addr);
 	memtext.focus();
 	memtext.select();
@@ -1032,12 +1046,17 @@ function memEdit(addr)
 	var memtext = document.getElementById(addr);
 	addr = addr.substring(4);
 	var register = false;
+	var pointer = false;
+	var iLen = 2;
+	var iMax = 0xFF;
 	if (addr.substring(0, 1) == "R")
 	{
 		register = true;
+	} else if (addr.substring(0, 1) == "P") {
+		pointer = true;
 	}
 	var oldval;
-	if (!register)
+	if (!register && !pointer)
 	{
 		oldval = emulator.m[addr];
 		if (oldval != undefined)
@@ -1046,8 +1065,21 @@ function memEdit(addr)
 		} else {
 			oldval = "00";
 		}
-	} else {
+	} else if (register) {
 		oldval = hexFormat(emulator.v[addr.substring(1)], 2, true);
+	} else if (pointer) {
+		iLen = 4;
+		iMax = 0xFFFF;
+		if (addr.substring(1) == "0")
+		{
+			oldval = hexFormat(emulator.pc,4,true);
+		} else if (addr.substring(1) == "1") {
+			oldval = hexFormat(emulator.i,4,true);
+		} else if (addr.substring(1) == "2"){
+			iLen = 2;
+			iMax = 0xFF;
+			oldval = hexFormat(emulator.dt,4,true);
+		}
 	}
 	if (oldval != undefined)
 	{
@@ -1060,17 +1092,27 @@ function memEdit(addr)
 		{
 			newval = oldval;
 		}
-		if (newval.toString().length < 2)
+		while (newval.toString().length < iLen)
 		{
 			newval = "0" + newval;
 		}
-		if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= 255)
+		if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= iMax)
 		{
-			if (!register)
+			if (!register && !pointer)
 			{
 				emulator.m[addr] = parseInt(newval, 16);
-			} else {
+			} else if (register) {
 				emulator.v[addr.substring(1)] = parseInt(newval, 16);
+			} else if (pointer) {
+				if (addr.substring(1) == "0")
+				{
+					emulator.pc = parseInt(newval, 16);
+				} else if (addr.substring(1) == "1") {
+					emulator.i = parseInt(newval, 16);
+				} else if (addr.substring(1) == "2") {
+					emulator.dt = parseInt(newval, 16);
+				}
+				buildMemBox(emulator.m.length);
 			}
 		} else {
 			newval = oldval;
