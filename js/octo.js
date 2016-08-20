@@ -882,21 +882,27 @@ function haltBreakpoint(breakName) {
 		}
 
 
+		var highclass = "";
 		var highlight = 0;
 		if (addr == emulator.pc)
 		{
+			highclass += "memhighlight ";
 			highlight = 1;
 		} else if (addr == emulator.pc + 1) {
+			highclass += "memhighlight ";
 			highlight = 2;
-		} else if (addr == emulator.i) {
-			highlight = 3;
+		}
+		if (addr == emulator.i) {
+			highclass += "ihighlight ";
+			if (highlight == 0)
+			{
+				highlight = 3;
+			}
 		}
 
-		if (highlight == 1 || highlight == 2)
+		if (highlight != 0)
 		{
-			memboxdump += '<span id="pcmem" class="memhighlight">';
-		} else if (highlight == 3) {
-			memboxdump += '<span id="imem" class="ihighlight">';
+			memboxdump += '<span id="pcmem" class="' + highclass + '">';
 		}
 
 		var data = emulator.m[addr];
@@ -967,13 +973,21 @@ function clearDelay()
 function scrollPC()
 {
 	var redmem = document.getElementById("pcmem");
+	var membox = document.getElementById("memorybox");
 	redmem.scrollIntoView();
+	membox.scrollTop -= membox.clientHeight * 0.5;
 }
 
 function scrollI()
 {
 	var redmem = document.getElementById("imem");
+	if (redmem == null)
+	{
+		redmem = document.getElementById("pcmem");
+	}
+	var membox = document.getElementById("memorybox");
 	redmem.scrollIntoView();
+	membox.scrollTop -= membox.clientHeight * 0.5;
 }
 
 function realTimeDissassemble(a, nn)
