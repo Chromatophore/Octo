@@ -907,6 +907,14 @@ function buildMemBox(memcap)
 	var membox = document.getElementById("memorybox");
 
 	var memmax = emulator.m.length;
+	for(var x = memmax - 1; x >= 0; x--)
+	{
+		if (emulator.m[x] != 0)
+		{
+			memmax = x;
+			x = -1;
+		}
+	}
 	if (emulator.pc + 2 > memmax)
 	{
 		memmax = emulator.pc + 2;
