@@ -856,7 +856,7 @@ function haltBreakpoint(breakName) {
 
 	// Compressed memory view:
 	exregdump += "<table class=\"memdump\"><tr>";
-	exregdump += '<td>PC:</td><td colspan="2" id="txtP0" onclick="memEditEnable(\'P0\')">' + hexFormat(emulator.pc,4,true) + '</td><td>I:</td><td colspan="2" id="txtP1" onclick="memEditEnable(\'P1\')">' + hexFormat(emulator.i,4,true) + '</td>';
+	exregdump += '<td style="max-width:15px">PC:</td><td style="padding-left:6px" colspan="2" id="txtP0" onclick="memEditEnable(\'P0\')">' + hexFormat(emulator.pc,4,true) + '</td><td>I:</td><td colspan="2" id="txtP1" onclick="memEditEnable(\'P1\')">' + hexFormat(emulator.i,4,true) + '</td>';
 	exregdump += '<td>D:</td><td id="txtP2" onclick="memEditEnable(\'P2\')">' + hexFormat(emulator.dt,2,true) + "</td>";
 	exregdump += "</tr><tr>";
 	for(var k = 0; k <= 0xF; k++) {
@@ -906,28 +906,51 @@ function buildMemBox(memcap)
 {
 	var membox = document.getElementById("memorybox");
 
+	var memmin = 0;
+	var imemmin = parseInt(document.getElementById("txtM0").innerText, 16);
+	console.log(document.getElementById("txtM0").innerText);
+	console.log(imemmin);
+	if (imemmin == -1)
+	{
+	} else {
+		memmin = imemmin;
+	}
+	if (memmin % 256 != 0)
+	{
+		memmin = memmin - (memmin % 256) + 256;
+	}
+
 	var memmax = emulator.m.length;
-	for(var x = memmax - 1; x >= 0; x--)
+	var imemmax = parseInt(document.getElementById("txtM1").innerText, 16);
+	if (imemmax == -1)
 	{
-		if (emulator.m[x] != 0)
+		for(var x = memmax - 1; x >= 0; x--)
 		{
-			memmax = x;
-			x = -1;
+			if (emulator.m[x] != 0)
+			{
+				memmax = x;
+				x = -1;
+			}
 		}
-	}
-	if (emulator.pc + 2 > memmax)
-	{
-		memmax = emulator.pc + 2;
-	}
-	if (emulator.i + 1 > memmax)
-	{
-		memmax = emulator.i + 1;
+		if (emulator.pc + 2 > memmax)
+		{
+			memmax = emulator.pc + 2;
+		}
+		if (emulator.i + 1 > memmax)
+		{
+			memmax = emulator.i + 1;
+		}
+	} else {
+		memmax = imemmax;
 	}
 	if (memmax % 256 != 0)
 	{
 		memmax = memmax - (memmax % 256) + 256;
 	}
-	if (membox.innerText == "" || document.getElementsByClassName("membyte").length != memmax)
+
+	document.getElementById("txtM0").innerText = hexFormat(memmin, 2, true);
+	document.getElementById("txtM1").innerText = hexFormat(memmax - 1, 2, true);
+	if (membox.innerText == "" || document.getElementsByClassName("membyte").length != memmax || memcap == -1)
 	{
 		// Display the memory cap:
 		//exregdump += "<br><br>Memory space: " + memcap;
@@ -939,7 +962,7 @@ function buildMemBox(memcap)
 		var color = '';
 		//for (var addr = memlo; addr < memhi; addr++) {
 		//for (var addr = 0; addr <= memcap; addr++) {
-		for (var addr = 0; addr < memmax; addr++) {
+		for (var addr = memmin; addr < memmax; addr++) {
 			if (wrap == 0) {
 				memboxdump += '<tr>';
 				memboxdump += "<td>" + hexFormat(addr, 4) + ":</td>";
@@ -1041,6 +1064,8 @@ function memEditEnable(addr)
 		} else {
 			txt.innerHTML = '<textarea maxlength="4" class="memtext memtext4" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
 		}
+	} else if (addr.substring(0, 1) == "M") {
+		txt.innerHTML = '<textarea maxlength="4" class="memhiloedit" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
 	} else {
 		txt.innerHTML = '<textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
 	}
@@ -1055,6 +1080,7 @@ function memEdit(addr)
 	addr = addr.substring(4);
 	var register = false;
 	var pointer = false;
+	var memedit = false;
 	var iLen = 2;
 	var iMax = 0xFF;
 	if (addr.substring(0, 1) == "R")
@@ -1062,9 +1088,11 @@ function memEdit(addr)
 		register = true;
 	} else if (addr.substring(0, 1) == "P") {
 		pointer = true;
+	} else if (addr.substring(0, 1) == "M") {
+		memedit = true;
 	}
 	var oldval;
-	if (!register && !pointer)
+	if (!register && !pointer && !memedit)
 	{
 		oldval = emulator.m[addr];
 		if (oldval != undefined)
@@ -1088,6 +1116,15 @@ function memEdit(addr)
 			iMax = 0xFF;
 			oldval = hexFormat(emulator.dt,4,true);
 		}
+	} else if (memedit) {
+		iLen = 4;
+		iMax = 0xFFFF;
+		if (addr.substring(1) == "0")
+		{
+			oldval = "0000";
+		} else if (addr.substring(1) == "1") {
+			oldval = "FF";
+		}
 	}
 	if (oldval != undefined)
 	{
@@ -1106,7 +1143,7 @@ function memEdit(addr)
 		}
 		if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= iMax)
 		{
-			if (!register && !pointer)
+			if (!register && !pointer && !memedit)
 			{
 				emulator.m[addr] = parseInt(newval, 16);
 			} else if (register) {
@@ -1121,6 +1158,9 @@ function memEdit(addr)
 					emulator.dt = parseInt(newval, 16);
 				}
 				buildMemBox(emulator.m.length);
+			} else if (memedit) {
+				document.getElementById("txt" + addr).innerHTML = newval;
+				buildMemBox(-1);
 			}
 		} else {
 			newval = oldval;
