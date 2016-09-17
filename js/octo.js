@@ -1216,9 +1216,12 @@ function scrollPC()
 	if (redmem[0] != null)
 	{
 		redmem[0].scrollIntoView();
-		membox.scrollTop -= membox.clientHeight * 0.5;
+		if (membox.clientHeight + membox.scrollTop != membox.scrollHeight)
+		{
+			membox.scrollTop -= membox.clientHeight * 0.5;
+		}
 	} else {
-		console.log("Can't find PC to scroll to!");
+		//console.log("Can't find PC to scroll to!");
 	}
 }
 
@@ -1233,9 +1236,12 @@ function scrollI()
 	if (redmem[0] != null)
 	{
 		redmem[0].scrollIntoView();
-		membox.scrollTop -= membox.clientHeight * 0.5;
+		if (membox.clientHeight + membox.scrollTop != membox.scrollHeight)
+		{
+			membox.scrollTop -= membox.clientHeight * 0.5;
+		}
 	} else {
-		console.log("Can't find I to scroll to!");
+		//console.log("Can't find I to scroll to!");
 	}
 }
 
