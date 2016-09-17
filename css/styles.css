@@ -152,7 +152,8 @@ table.exdebugger {
 }
 .memscroll {
 	display: inline-block;
-	width: 15px;
+	width: 17px;
+	height: 17px;
     text-align: center;
     border: 1px solid white;
     padding: 2px;
@@ -181,21 +182,25 @@ table.exdebugger {
 }
 .scrolllock {
 	display: inline-block;
-	width: 15px;
+	width: 17px;
+	height: 17px;
     text-align: center;
     border: 1px solid white;
     padding: 2px;
     float: right;
+}
+#memreload {
+    float: none;
 }
 .memhilo {
     padding: 2px;
     border: 1px solid white;
 	display: inline-block;
 	min-width: 30px;
-	height: 14px;
+	height: 17px;
 }
 .memhiloedit {
-	height: 14px;
+	height: 17px;
 	width: 30px;
 	resize: none;
 	overflow: hidden;

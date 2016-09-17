@@ -141,6 +141,9 @@ function reset() {
 	window.clearInterval(intervalHandle);
 	clearBreakpoint();
 	stopAudio();
+	document.getElementById("exRegisterView").style.display = "none"
+	document.getElementById("txtM0").innerText = "-1";
+	document.getElementById("txtM1").innerText = "-1";
 	document.getElementById("memorybox").innerHTML = "";
 }
 
@@ -803,11 +806,8 @@ function formatAliases(id) {
 function haltBreakpoint(breakName) {
 	var button = document.getElementById("continueButton");
 	var regs   = document.getElementById("registerView");
-	var exregs   = document.getElementById("exRegisterView");
-	var exview   = document.getElementById("exview");
 	button.style.display = "inline";
 	regs.style.display = "inline";
-	exregs.style.display = "inline";
 
 	var regdump =
 		"<span>tick count: " + emulator.tickCounter + "</span><br>" +
@@ -852,7 +852,26 @@ function haltBreakpoint(breakName) {
 		regdump += "<td><pre>" + escapeHtml(dbg.lines[line]) + "</pre></td></tr>\n";
 	}
 
+	regs.innerHTML = regdump;
+	emulator.breakpoint = true;
+	curBreakName = breakName;
+	exRegDump();
+}
+
+function exRegDump()
+{
+	var exregs   = document.getElementById("exRegisterView");
+	if (exregs.style.display == "none") { return; }
+	var exview   = document.getElementById("exview");
 	var exregdump = "";
+
+	var dbg = emulator.metadata.dbginfo;
+
+	// scan backwards & forwards in memory as long as addrs map to nearby lines
+	var pcline = dbg.locs[emulator.pc];
+	var memlo = emulator.pc, memhi = emulator.pc;
+	while (dbg.locs[memlo - 1] > pcline - 8) memlo--;
+	while (dbg.locs[memhi + 1] < pcline + 8) memhi++;
 
 	// Compressed memory view:
 	exregdump += "<table class=\"memdump\"><tr>";
@@ -896,10 +915,26 @@ function haltBreakpoint(breakName) {
 
 	buildMemBox(memcap);
 
-	regs.innerHTML = regdump;
 	exview.innerHTML = exregdump;
-	emulator.breakpoint = true;
-	curBreakName = breakName;
+}
+
+function toggleExtendedDebugger()
+{
+	var exregs   = document.getElementById("exRegisterView");
+	if (exregs.style.display == "none")
+	{
+		exregs.style.display = "inline";
+		exRegDump();
+	} else {
+		exregs.style.display = "none";
+	}
+}
+
+function rescanMemBox()
+{
+	document.getElementById("txtM0").innerText = "-1";
+	document.getElementById("txtM1").innerText = "-1";
+	buildMemBox(-1);
 }
 
 function buildMemBox(memcap)
@@ -908,8 +943,6 @@ function buildMemBox(memcap)
 
 	var memmin = 0;
 	var imemmin = parseInt(document.getElementById("txtM0").innerText, 16);
-	console.log(document.getElementById("txtM0").innerText);
-	console.log(imemmin);
 	if (imemmin == -1)
 	{
 	} else {
@@ -948,8 +981,8 @@ function buildMemBox(memcap)
 		memmax = memmax - (memmax % 256) + 256;
 	}
 
-	document.getElementById("txtM0").innerText = hexFormat(memmin, 2, true);
-	document.getElementById("txtM1").innerText = hexFormat(memmax - 1, 2, true);
+	document.getElementById("txtM0").innerText = hexFormat(memmin, 4, true);
+	document.getElementById("txtM1").innerText = hexFormat(memmax - 1, 4, true);
 	if (membox.innerText == "" || document.getElementsByClassName("membyte").length != memmax || memcap == -1)
 	{
 		// Display the memory cap:
@@ -1224,10 +1257,8 @@ function realTimeDissassebmlyLabel(nnn)
 function clearBreakpoint() {
 	var button = document.getElementById("continueButton");
 	var regs   = document.getElementById("registerView");
-	var exregs   = document.getElementById("exRegisterView");
 	button.style.display = "none";
 	regs.style.display = "none";
-	exregs.style.display = "none";
 	emulator.breakpoint = false;
 	curBreakName = undefined;
 }

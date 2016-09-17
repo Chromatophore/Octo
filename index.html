@@ -278,6 +278,12 @@
 				style="padding-left: 10px;"
 			/>
 			<img
+				title="extended debugger"
+				src="images/screenshot.png"
+				onclick="toggleExtendedDebugger()"
+				style="padding-left: 10px;"
+			/>
+			<img
 				id="continueButton"
 				title="continue"
 				src="images/continue.png"
@@ -292,11 +298,12 @@
 		<div class="exdebugger" id="exRegisterView" style="display:none">
 			<div id="exview">extended register display.</div>
 			<br /><div>
-				<div class="memscroll memhighlight" onclick="scrollPC()">pc</div>&nbsp;
-				<div class="memscroll ihighlight" onclick="scrollI()">i</div>&nbsp;
-				<div class="memhilo" id="txtM0" onclick="memEditEnable('M0')">-1</div>
-				<div class="memhilo" id="txtM1" onclick="memEditEnable('M1')">-1</div>
-				<div id="memscrolllock" class="scrolllock" onclick="toggleCodeScroll()">&#128275;</div>
+				<div title="jump to pc" class="memscroll memhighlight" onclick="scrollPC()">pc</div>&nbsp;
+				<div title="jump to i" class="memscroll ihighlight" onclick="scrollI()">i</div>&nbsp;
+				<div title="low display memory address" class="memhilo" id="txtM0" onclick="memEditEnable('M0')">-1</div>
+				<div title="high display memory address" class="memhilo" id="txtM1" onclick="memEditEnable('M1')">-1</div>
+				<div title="rescan memory bounds" id="memreload" class="scrolllock" onclick="rescanMemBox()">&#8635;</div>
+				<div title="toggle memory autoscroll" id="memscrolllock" class="scrolllock" onclick="toggleCodeScroll()">&#128275;</div>
 			</div>
 			<code class="memorybox" id="memorybox"></code>
 		</div>
