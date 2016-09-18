@@ -1218,11 +1218,14 @@ function scrollPC()
 	var membox = document.getElementById("memorybox");
 	if (redmem[0] != null)
 	{
-		redmem[0].scrollIntoView();
-		if (membox.clientHeight + membox.scrollTop != membox.scrollHeight)
+		/*
+		redmem[0].scrollIntoView(false);
+		if (membox.scrollTop != 0)
 		{
-			membox.scrollTop -= membox.clientHeight * 0.5;
+			membox.scrollTop += membox.clientHeight * 0.5;
 		}
+		*/
+		membox.scrollTop = redmem[0].offsetTop + 32 - membox.clientHeight * 0.5;
 	} else {
 		//console.log("Can't find PC to scroll to!");
 	}
@@ -1238,11 +1241,7 @@ function scrollI()
 	var membox = document.getElementById("memorybox");
 	if (redmem[0] != null)
 	{
-		redmem[0].scrollIntoView();
-		if (membox.clientHeight + membox.scrollTop != membox.scrollHeight)
-		{
-			membox.scrollTop -= membox.clientHeight * 0.5;
-		}
+		membox.scrollTop = redmem[0].offsetTop + 32 - membox.clientHeight * 0.5;
 	} else {
 		//console.log("Can't find I to scroll to!");
 	}
