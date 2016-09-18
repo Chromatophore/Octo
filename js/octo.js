@@ -30,7 +30,10 @@ function decimalFormat(num) {
 	return dec;
 }
 
-function hexFormat(num, pad = 2, preslice = false) {
+//function hexFormat(num, pad = 2, preslice = false) { // Edge doesn't support this?
+function hexFormat(num, pad, preslice) {
+	if (pad == undefined) { pad = 2; }
+	if (preslice == undefined) { preslice = false; }
 	var hex  = num.toString(16).toUpperCase();
 	var pad0 = zeroPad(hex.length, pad);
 	if (preslice)
