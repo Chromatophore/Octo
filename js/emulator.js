@@ -111,15 +111,19 @@ function Emulator() {
 	this.metadata = {};
 	this.tickCounter = 0;
 
+	this.memobservers = undefined;
+
 	// external interface stubs
 	this.exitVector  = function() {}                                   // fired by 'exit'
 	this.importFlags = function() { return [0, 0, 0, 0, 0, 0, 0, 0]; } // load persistent flags
 	this.exportFlags = function(flags) {}                              // save persistent flags
 	this.buzzTrigger = function(ticks, remainingTicks) {}                              // fired when buzzer played
+	this.memoryUpdate = function(start_addr, numbytes) {}
 
 	this.init = function(rom) {
 		// initialise memory with a new array to ensure that it is of the right size and is initiliased to 0
 		this.m = this.enableXO ? new Uint8Array(0x10000) : new Uint8Array(0x1000);
+		this.memobservers = new Set();
 
 		// initialize memory
 		for(var z = 0; z < 32*64;          z++) { this.p[0][z] = 0; this.p[1][z] = 0; }
@@ -215,6 +219,7 @@ function Emulator() {
 				break;
 			case 0x55:
 				for(var z = 0; z <= x; z++) { this.m[this.i+z] = this.v[z]; }
+				this.memoryUpdate(this.i, x + 1); // Inform any observers of the memory has been updated.
 				if (!this.loadStoreQuirks) { this.i = (this.i+x+1)&0xFFFF; }
 				break;
 			case 0x65:

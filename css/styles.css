@@ -113,7 +113,7 @@ table.memdump {
 	color: white;
 }
 div.debugger {
-	width: 300px;
+	width: 400px;
 }
 #memorybox {
     height: 300px;
@@ -179,6 +179,12 @@ table.exdebugger {
 }
 .memtext4 {
 	width: 30px;
+}
+.memtext6 {
+	width: 42px;
+}
+.memtext10 {
+	width: 66px;
 }
 .scrolllock {
 	display: inline-block;

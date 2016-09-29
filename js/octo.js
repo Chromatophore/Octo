@@ -20,6 +20,7 @@ function numericFormat(num, format) {
 	if (format == "dec")      { return decimalFormat(num); }
 	else if (format == "bin") { return binaryFormat(num);  }
 	else if (format == "hex") { return hexFormat(num);     }
+	else if (format == "shorthex") { return hexFormat(num, 2, true); }
 
 	return hexFormat(num);
 }
@@ -121,6 +122,8 @@ function compile() {
 	};
 }
 
+
+
 function runRom(rom) {
 	if (rom === null) { return; }
 	if (intervalHandle != null) { reset(); }
@@ -128,6 +131,7 @@ function runRom(rom) {
 	emulator.importFlags = function() { return JSON.parse(localStorage.getItem("octoFlagRegisters")); }
 	emulator.exportFlags = function(flags) { localStorage.setItem("octoFlagRegisters", JSON.stringify(flags)); }
 	emulator.buzzTrigger = function(ticks, remainingTicks) { playPattern(ticks, emulator.pattern, remainingTicks); }
+	emulator.memoryUpdate = function(start_addr, numbytes) { memoryUpdate(start_addr, numbytes); }
 	emulator.init(rom);
 	audioSetup();
 	document.getElementById("emulator").style.display = "inline";
@@ -814,50 +818,116 @@ function haltBreakpoint(breakName) {
 
 	var regdump =
 		"<span>tick count: " + emulator.tickCounter + "</span><br>" +
-		"<span>breakpoint: " + breakName + "</span><br>" +
-		"<span onClick=\"cycleNumFormat('pc');\">pc := " + numericFormat(emulator.pc, regNumFormat["pc"]) + getLabel(emulator.pc) + "</span><br>" +
-		// real time dissassembly of command being performed:
+		"<span>breakpoint: " + breakName + "</span><br>"
+		//"<span onClick=\"cycleNumFormat('pc');\">pc </span>:= " + numericFormat(emulator.pc, regNumFormat["pc"]) + getLabel(emulator.pc) + "<br>" +
+		// real time disassembly of command being performed:
 		//"cmd = " + hexFormat(emulator.m[emulator.pc]) + hexFormat(emulator.m[emulator.pc + 1]).slice(2) + "<br>(" + dissaassmbledInstruction + ")<br>" +
-		"<span onClick=\"cycleNumFormat('i');\">i := " + numericFormat(emulator.i, regNumFormat["i"]) + getLabel(emulator.i) + "</span><br>";
+		//"<span onClick=\"cycleNumFormat('i');\">i := " + numericFormat(emulator.i, regNumFormat["i"]) + getLabel(emulator.i) + "</span><br>";
+		/*
 	for(var k = 0; k <= 0xF; k++) {
 		var hex = k.toString(16).toUpperCase();
 		regdump += "<span onClick=\"cycleNumFormat('"+ k + "');\">v" + hex + " := " + numericFormat(emulator.v[k], regNumFormat[k]) + formatAliases(k) + "</span><br>";
+	}*/
+
+
+
+	// New memory view:
+	regdump += "<table class=\"memdump\">";
+	regdump += '<tr><td>pc :=</td><td id="txtP0" onclick="memEditEnable(\'P0\')">' + hexFormat(emulator.pc,4) + '</td></tr>'
+	regdump += '<tr><td> i :=</td><td id="txtP1" onclick="memEditEnable(\'P1\')">' + hexFormat(emulator.i,4) + '</td><td>' + getLabel(emulator.i) + '</td></tr>';
+	// exregdump += '<tr><td>D:</td><td id="txtP2" onclick="memEditEnable(\'P2\')">' + hexFormat(emulator.dt,2,true) + "</td>";
+	for(var k = 0; k <= 0xF; k++) {
+		var lohex = k.toString(16);
+		var hex = lohex.toUpperCase();
+		var value = numericFormat(emulator.v[k], regNumFormat[k]);//hexFormat(emulator.v[k],2);
+		var addr = "R" + k;
+		regdump += "<tr>";
+
+		regdump += '<td style=\"white-space: nowrap;\" onclick="cycleNumFormat(\'' + k + '\')"> v'+ hex + ' := </td>';
+
+		if (regNumFormat[k] == "bin")
+		{
+			regdump += '<td colspan="2" id="txtB' + k + '"onclick=\'memEditEnable("B' + k + '")\'>';
+			regdump += value;
+			regdump += "</td>";
+		}
+		else
+		{
+			regdump += '<td id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
+			regdump += value;
+			regdump += "</td>";
+
+			regdump += "<td style=\"white-space: nowrap; text-overflow:ellipsis; overflow: hidden; max-width:300px;\">" + formatAliases(k) + "</td>";			
+		}
+
+
+		regdump += "</tr>";
+	}
+	regdump += "</tr></table>"
+
+	var showDisassembly = false;
+
+	if (showDisassembly) {
+		// Disassemble commands around the PC value
+		// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
+		// Set this based on emulator.enableXO
+		var memcap = emulator.enableXO == true ? 0xFFFF : 0xFFF;
+		memlo = emulator.pc - 8;
+		memhi = emulator.pc + 8;
+		if (memlo < 0) memlo = 0;
+		if (memhi >= memcap) memhi = memcap - 1;
+
+		regdump += "<br>Addr. Byte Disassembly"
+		for (var mem = memlo; mem <= memhi; mem += 2)
+		{
+			if (mem == emulator.pc)
+				regdump += "<span class='memhighlight'>";
+			var a = emulator.m[mem];
+			var nn = emulator.m[mem+1];
+			var thisHex = "";
+			thisHex += hexFormat(mem,4).slice(2) + ": ";
+			thisHex += hexFormat(a,2,true) + hexFormat(nn,2,true);
+			regdump += "<br>" + thisHex + " " + realTimeDisassemble(a, nn);
+			if (mem == emulator.pc)
+				regdump += "</span>";
+		}
+	} else {
+
+		var dbg = emulator.metadata.dbginfo;
+		// scan backwards & forwards in memory as long as addrs map to nearby lines
+		var pcline = dbg.locs[emulator.pc];
+		var memlo = emulator.pc, memhi = emulator.pc;
+		while (dbg.locs[memlo - 1] > pcline - 8) memlo--;
+		while (dbg.locs[memhi + 1] < pcline + 8) memhi++;
+
+		var ind = memlo;
+
+		regdump += '<br><table class="debugger"><tr><td>addr</td><td>data</td><td style="width:40em">source</td></tr>\n';
+		for (var line = dbg.locs[memlo]; line <= dbg.locs[memhi]; line++) {
+			if (dbg.lines[line].match(/^\s*$/)) continue;  // skip empty lines
+			if (dbg.locs[ind] == line) {
+				regdump += dbg.locs[ind] == pcline ? '<tr class="debugger-searchline">' : '<tr>';
+				regdump += "<td>" + hexFormat(ind).slice(2) + "</td><td>";
+				for (; dbg.locs[ind] == line; ind++) {
+					regdump += hexFormat(emulator.m[ind]).slice(2);
+				}
+				regdump += "</td>";
+			} else {
+				regdump += "<tr><td></td><td></td>";
+			}
+			regdump += "<td><pre>" + escapeHtml(dbg.lines[line]) + "</pre></td></tr>\n";
+		}
 	}
 
-	regdump += "<br>inferred stack trace:<br>";
+	regdump += "<br>Inferred stack trace:<br>";
 	for(var x = 0; x < emulator.r.length; x++) {
 		regdump += hexFormat(emulator.r[x]) + getLabel(emulator.r[x]) + "<br>";
-	}
-
-	var dbg = emulator.metadata.dbginfo;
-
-	// scan backwards & forwards in memory as long as addrs map to nearby lines
-	var pcline = dbg.locs[emulator.pc];
-	var memlo = emulator.pc, memhi = emulator.pc;
-	while (dbg.locs[memlo - 1] > pcline - 8) memlo--;
-	while (dbg.locs[memhi + 1] < pcline + 8) memhi++;
-
-	var ind = memlo;
-
-	regdump += '<br><table class="debugger"><tr><td>addr</td><td>data</td><td style="width:40em">source</td></tr>\n';
-	for (var line = dbg.locs[memlo]; line <= dbg.locs[memhi]; line++) {
-		if (dbg.lines[line].match(/^\s*$/)) continue;  // skip empty lines
-		if (dbg.locs[ind] == line) {
-			regdump += dbg.locs[ind] == pcline ? '<tr class="debugger-searchline">' : '<tr>';
-			regdump += "<td>" + hexFormat(ind).slice(2) + "</td><td>";
-			for (; dbg.locs[ind] == line; ind++) {
-				regdump += hexFormat(emulator.m[ind]).slice(2);
-			}
-			regdump += "</td>";
-		} else {
-			regdump += "<tr><td></td><td></td>";
-		}
-		regdump += "<td><pre>" + escapeHtml(dbg.lines[line]) + "</pre></td></tr>\n";
 	}
 
 	regs.innerHTML = regdump;
 	emulator.breakpoint = true;
 	curBreakName = breakName;
+	
 	exRegDump();
 }
 
@@ -868,54 +938,7 @@ function exRegDump()
 	var exview   = document.getElementById("exview");
 	var exregdump = "";
 
-	var dbg = emulator.metadata.dbginfo;
-
-	// scan backwards & forwards in memory as long as addrs map to nearby lines
-	var pcline = dbg.locs[emulator.pc];
-	var memlo = emulator.pc, memhi = emulator.pc;
-	while (dbg.locs[memlo - 1] > pcline - 8) memlo--;
-	while (dbg.locs[memhi + 1] < pcline + 8) memhi++;
-
-	// Compressed memory view:
-	exregdump += "<table class=\"memdump\"><tr>";
-	exregdump += '<td style="max-width:15px">PC:</td><td style="padding-left:6px" colspan="2" id="txtP0" onclick="memEditEnable(\'P0\')">' + hexFormat(emulator.pc,4,true) + '</td><td>I:</td><td colspan="2" id="txtP1" onclick="memEditEnable(\'P1\')">' + hexFormat(emulator.i,4,true) + '</td>';
-	exregdump += '<td>D:</td><td id="txtP2" onclick="memEditEnable(\'P2\')">' + hexFormat(emulator.dt,2,true) + "</td>";
-	exregdump += "</tr><tr>";
-	for(var k = 0; k <= 0xF; k++) {
-		var hex = k.toString(16).toUpperCase();
-		var value = hexFormat(emulator.v[k],2,true);
-		var addr = "R" + k;
-		exregdump += '<td id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
-		exregdump += value;
-		exregdump += "</td>";
-
-		if (k == 7)
-			exregdump += "</tr><tr>";
-	}
-	exregdump += "</tr></table>"
-
-	// Dissassemble commands around the PC value
-	// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
-	// Set this based on emulator.enableXO
 	var memcap = emulator.enableXO == true ? 0xFFFF : 0xFFF;
-	memlo = emulator.pc - 6;
-	memhi = emulator.pc + 6;
-	if (memlo < 0) memlo = 0;
-	if (memhi >= memcap) memhi = memcap - 1;
-	for (var mem = memlo; mem <= memhi; mem += 2)
-	{
-		if (mem == emulator.pc)
-			exregdump += "<span class='memhighlight'>";
-		var a = emulator.m[mem];
-		var nn = emulator.m[mem+1];
-		var thisHex = "";
-		//thisHex += hexFormat(mem,4).slice(2) + ": " +
-		thisHex += hexFormat(a,2,true) + hexFormat(nn,2,true);
-		exregdump += "<br>" + thisHex + " " + realTimeDissassemble(a, nn);
-		if (mem == emulator.pc)
-			exregdump += "</span>";
-	}
-
 	buildMemBox(memcap);
 
 	exview.innerHTML = exregdump;
@@ -938,6 +961,22 @@ function rescanMemBox()
 	document.getElementById("txtM0").innerText = "-1";
 	document.getElementById("txtM1").innerText = "-1";
 	buildMemBox(-1);
+}
+
+function memoryUpdate(start_address, num_bytes)
+{
+	// this 
+	var start = start_address;
+	var end = start_address + num_bytes;
+	for (var i = start; i < end; i++) {
+		var data = emulator.m[i];
+		var value = data == undefined ? "xx" : hexFormat(data,2,true);
+		var txt = document.getElementById("txt" + i);
+		if (txt != null)
+		{
+			txt.innerText = value;
+		}
+	};
 }
 
 function buildMemBox(memcap)
@@ -1015,6 +1054,7 @@ function buildMemBox(memcap)
 				highclass += "imem ihighlight ";
 			}
 
+			// These are the the editable memory bytes
 			memboxdump += '<td class="membyte ' + highclass + '" id="txt' + addr + '"onclick=\'memEditEnable("' + addr + '")\'>';
 
 			var data = emulator.m[addr];
@@ -1066,18 +1106,6 @@ function buildMemBox(memcap)
 		{
 			element.className += " imem ihighlight ";
 		}
-
-		var start = emulator.i - 32;
-		var end = emulator.i + 32;
-		for (var i = start; i <= end; i++) {
-			var data = emulator.m[(memmax + i) % memmax];
-			var value = data == undefined ? "xx" : hexFormat(data,2,true);
-			var txt = document.getElementById("txt" + (memmax + i) % memmax);
-			if (txt != null)
-			{
-				txt.innerText = value;
-			}
-		};
 	}
 
 	if (membox.className == "memorybox")
@@ -1092,19 +1120,33 @@ function memEditEnable(addr)
 	var memtext = document.getElementById("addr" + addr);
 	if (memtext != null) { return; }
 	var oldmem = txt.innerText;
-	if (addr.substring(0, 1) == "P")
+
+	var preletter = addr.substring(0, 1);
+
+	var htmlstring = "";
+
+	if (preletter == "P") 		// The PC, I and D register boxes
 	{
-		if (addr.substring(1) == "2")
+		if (addr.substring(1) == "2") 		// D register
 		{
-			txt.innerHTML = '<textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
-		} else {
-			txt.innerHTML = '<textarea maxlength="4" class="memtext memtext4" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+			htmlstring = '<textarea maxlength="2" class="memtext"';
+		} else {							// PC and I
+			htmlstring = '<textarea maxlength="6" class="memtext memtext6"';
 		}
-	} else if (addr.substring(0, 1) == "M") {
-		txt.innerHTML = '<textarea maxlength="4" class="memhiloedit" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
-	} else {
-		txt.innerHTML = '<textarea maxlength="2" class="memtext" id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+	} else if (preletter == "M") {			// Memory high/low boxes
+		htmlstring = '<textarea maxlength="4" class="memhiloedit"';
+	} else if (preletter == "R") {			// Registers
+		htmlstring = '<textarea maxlength="4" class="memtext memtext4"';
+	} else if (preletter == "B") {			// Registers in binary format
+		htmlstring = '<textarea maxlength="10" class="memtext memtext10"';
+	} else {								// Most likely, memory bytes in memviewer
+		htmlstring = '<textarea maxlength="2" class="memtext"';
 	}
+
+	htmlstring += ' ' + 'id="addr' + addr + '" onblur="memEdit(\'addr' + addr + '\')">' + oldmem + '</textarea>';
+
+	txt.innerHTML = htmlstring;
+
 	memtext = document.getElementById("addr" + addr);
 	memtext.focus();
 	memtext.select();
@@ -1112,6 +1154,7 @@ function memEditEnable(addr)
 
 function memEdit(addr)
 {
+	// Oh boy the classic no comment sprawling input parser
 	var memtext = document.getElementById(addr);
 	addr = addr.substring(4);
 	var register = false;
@@ -1119,17 +1162,21 @@ function memEdit(addr)
 	var memedit = false;
 	var iLen = 2;
 	var iMax = 0xFF;
-	if (addr.substring(0, 1) == "R")
-	{
+	var format = "shorthex";
+
+	// Scan address string to ascertain type of input:
+	var prechar = addr.substring(0, 1);
+	if (prechar == "R" || prechar == "B") { 
 		register = true;
-	} else if (addr.substring(0, 1) == "P") {
+	} else if (prechar == "P") {
 		pointer = true;
-	} else if (addr.substring(0, 1) == "M") {
+	} else if (prechar == "M") {
 		memedit = true;
 	}
+
+	// Obtain the old value in case there is a problem with the new one I guess?
 	var oldval;
-	if (!register && !pointer && !memedit)
-	{
+	if (!register && !pointer && !memedit) {	// Memviewer Bytes - hex only
 		oldval = emulator.m[addr];
 		if (oldval != undefined)
 		{
@@ -1137,9 +1184,14 @@ function memEdit(addr)
 		} else {
 			oldval = "00";
 		}
-	} else if (register) {
-		oldval = hexFormat(emulator.v[addr.substring(1)], 2, true);
-	} else if (pointer) {
+	} else if (register) {					// Registers v0 through vF - variable type
+		var regnumber = addr.substring(1);
+		format = regNumFormat[regnumber];
+		oldval = numericFormat(emulator.v[regnumber], format);
+		if (format == "bin")	// Set min length to 8 for binary
+			iLen = 8;
+	} else if (pointer) {					// PC and I registers - hex only
+		format = "hex";
 		iLen = 4;
 		iMax = 0xFFFF;
 		if (addr.substring(1) == "0")
@@ -1152,7 +1204,7 @@ function memEdit(addr)
 			iMax = 0xFF;
 			oldval = hexFormat(emulator.dt,4,true);
 		}
-	} else if (memedit) {
+	} else if (memedit) {					// Memory min/max fields for memviewer - hex only
 		iLen = 4;
 		iMax = 0xFFFF;
 		if (addr.substring(1) == "0")
@@ -1162,47 +1214,69 @@ function memEdit(addr)
 			oldval = "FF";
 		}
 	}
+
+	var newval = "xx"
 	if (oldval != undefined)
 	{
-		var newval = memtext.value.toUpperCase();
-		if (newval == "")
+		newval = memtext.value;
+		// obtain new value but do not upper case it yet.	
+		if (newval == "")	// new value is empty string
 		{
 			newval = oldval;
 		}
-		if (isNaN(parseInt(newval, 16)))
+		if (isNaN(parseInt(newval, 16))) // new value is not a number
 		{
 			newval = oldval;
 		}
-		while (newval.toString().length < iLen)
+		while (newval.toString().length < iLen) // new value is not long enough, pad with 0s
 		{
 			newval = "0" + newval;
 		}
-		if (parseInt(newval, 16) >= 0 && parseInt(newval, 16) <= iMax)
-		{
-			if (!register && !pointer && !memedit)
-			{
-				emulator.m[addr] = parseInt(newval, 16);
+
+		// Validate numeric depending on input format:
+		var numeric = 0;
+		if (format == "hex" || format == "shorthex")
+			numeric = parseInt(newval, 16);
+		else if (format == "bin")
+			numeric = parseInt(newval, 2);
+		else
+			numeric = parseInt(newval, 10);
+
+		// Treat going over max/under minimum based on context:
+		if (numeric > iMax) {
+			if (format == "dec")	// cap at max for decimals
+				numeric = iMax;
+			else					// and with max for bin and hex
+				numeric &= iMax;
+		} else if (numeric < 0) {		// allow decimals to be inputted as -ve numbers for ease of use
+			if (format == "dec") {
+				numeric = (numeric + 0x100) & 0xFF;
+			}
+		}
+
+		// if the result is now in the valid range of values, which it most likely will be due to the above filtering:
+		if (numeric >= 0 && numeric <= iMax) {
+			if (!register && !pointer && !memedit) {
+				emulator.m[addr] = numeric;
 			} else if (register) {
-				emulator.v[addr.substring(1)] = parseInt(newval, 16);
+				emulator.v[addr.substring(1)] = numeric;
 			} else if (pointer) {
-				if (addr.substring(1) == "0")
-				{
-					emulator.pc = parseInt(newval, 16);
+				if (addr.substring(1) == "0") {
+					emulator.pc = numeric;
 				} else if (addr.substring(1) == "1") {
-					emulator.i = parseInt(newval, 16);
+					emulator.i = numeric;
 				} else if (addr.substring(1) == "2") {
-					emulator.dt = parseInt(newval, 16);
+					emulator.dt = numeric;
 				}
 				buildMemBox(emulator.m.length);
 			} else if (memedit) {
 				document.getElementById("txt" + addr).innerHTML = newval;
 				buildMemBox(-1);
 			}
+			newval = numericFormat(numeric,format);
 		} else {
 			newval = oldval;
 		}
-	} else {
-		newval = "xx";
 	}
 	document.getElementById("txt" + addr).innerHTML = newval;
 }
@@ -1247,17 +1321,17 @@ function scrollI()
 	}
 }
 
-function realTimeDissassemble(a, nn)
+function realTimeDisassemble(a, nn)
 {
-	var dissassembledInstruction = formatInstruction(a, nn, realTimeDissassebmlyLabel);
+	var disassembledInstruction = formatInstruction(a, nn, realTimeDisassemblyLabel);
 
 	if ((a & 0xF0) == 0x20)
-		dissassembledInstruction = "Gosub " + dissassembledInstruction;
+		disassembledInstruction = "Gosub " + disassembledInstruction;
 
-	return dissassembledInstruction;
+	return disassembledInstruction;
 }
 
-function realTimeDissassebmlyLabel(nnn)
+function realTimeDisassemblyLabel(nnn)
 {
 	return hexFormat(nnn) + " " + getLabel(nnn);
 }

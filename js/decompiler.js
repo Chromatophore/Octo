@@ -105,7 +105,7 @@ function formatInstruction(a, nn, labelFunction) {
 	return hexFormat(a) + " " + hexFormat(nn) + " # bad opcode?";
 }
 
-function retrieveLabelFromDissassembledCode(nnn)
+function retrieveLabelFromDisassembledCode(nnn)
 {
 	var result = lnames[nnn];
 	if (result == undefined)
@@ -804,7 +804,7 @@ function formatProgram(programSize) {
 				x+=3;
 			}
 			else {
-				ret += (indent + formatInstruction(program[a], program[a+1], retrieveLabelFromDissassembledCode) + singleResult(a) + "\n");
+				ret += (indent + formatInstruction(program[a], program[a+1], retrieveLabelFromDisassembledCode) + singleResult(a) + "\n");
 				x++;
 			}
 		}
@@ -814,7 +814,7 @@ function formatProgram(programSize) {
 		else if (type[a] == "smc" && (type[a+1] == "smc" || type[a+1] == "code")) {
 			ret += indent;
 			ret += hexFormat(program[a]) + " " + hexFormat(program[a+1])
-			ret += " # smc? " + formatInstruction(program[a], program[a+1], retrieveLabelFromDissassembledCode) + "\n";
+			ret += " # smc? " + formatInstruction(program[a], program[a+1], retrieveLabelFromDisassembledCode) + "\n";
 			x++;
 		}
 		else {
