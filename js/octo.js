@@ -857,7 +857,8 @@ function haltBreakpoint(breakName) {
 			regdump += value;
 			regdump += "</td>";
 
-			regdump += "<td style=\"white-space: nowrap; text-overflow:ellipsis; overflow: hidden; max-width:300px;\">" + formatAliases(k) + "</td>";			
+			var formattedAlias = formatAliases(k);
+			regdump += "<td style=\"white-space: nowrap; text-overflow:ellipsis; overflow: hidden; max-width:300px;\" title=\"" + formattedAlias + "\">" + formattedAlias + "</td>";
 		}
 
 
@@ -917,6 +918,7 @@ function haltBreakpoint(breakName) {
 			}
 			regdump += "<td><pre>" + escapeHtml(dbg.lines[line]) + "</pre></td></tr>\n";
 		}
+		regdump += "</table>";
 	}
 
 	regdump += "<br>Inferred stack trace:<br>";
@@ -927,7 +929,7 @@ function haltBreakpoint(breakName) {
 	regs.innerHTML = regdump;
 	emulator.breakpoint = true;
 	curBreakName = breakName;
-	
+
 	exRegDump();
 }
 
@@ -965,7 +967,7 @@ function rescanMemBox()
 
 function memoryUpdate(start_address, num_bytes)
 {
-	// this 
+	// this
 	var start = start_address;
 	var end = start_address + num_bytes;
 	for (var i = start; i < end; i++) {
@@ -1150,6 +1152,15 @@ function memEditEnable(addr)
 	memtext = document.getElementById("addr" + addr);
 	memtext.focus();
 	memtext.select();
+	memtext.addEventListener("keydown", function(event){keyDownEdit(event, memtext)}, true);
+}
+
+function keyDownEdit(event, memtext) {
+	if (event.keyCode == 13)
+	{
+		event.preventDefault();
+		memtext.blur();
+	}
 }
 
 function memEdit(addr)
@@ -1166,7 +1177,7 @@ function memEdit(addr)
 
 	// Scan address string to ascertain type of input:
 	var prechar = addr.substring(0, 1);
-	if (prechar == "R" || prechar == "B") { 
+	if (prechar == "R" || prechar == "B") {
 		register = true;
 	} else if (prechar == "P") {
 		pointer = true;
@@ -1219,7 +1230,7 @@ function memEdit(addr)
 	if (oldval != undefined)
 	{
 		newval = memtext.value;
-		// obtain new value but do not upper case it yet.	
+		// obtain new value but do not upper case it yet.
 		if (newval == "")	// new value is empty string
 		{
 			newval = oldval;
