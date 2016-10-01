@@ -810,6 +810,44 @@ function formatAliases(id) {
 	return ret + ")";
 }
 
+function cycleCodeView(style) {
+	var regs   = document.getElementById("registerView");
+
+	regs.showDisassembly = style;
+
+	if (emulator.pc in emulator.metadata.breakpoints) {
+		haltBreakpoint(emulator.metadata.breakpoints[emulator.pc]);
+	}
+	else
+		haltBreakpoint("view refreshed");
+}
+
+function addBreak(pc, name) // Helper functions for console use to add breakpoints
+{
+	if (pc === undefined)
+		pc = emulator.pc;
+
+	if (name === undefined)
+		name = "No name set";
+
+	emulator.metadata.breakpoints[pc] = name;
+	return "Breakpoint added at " + hexFormat(pc,4) + " - " + name;
+}
+
+function removeBreak(pc, name) // Helper functions for console use to remove breakpoints
+{
+	if (pc === undefined)
+		pc = emulator.pc;
+
+	if (pc in emulator.metadata.breakpoints)
+	{
+		delete emulator.metadata.breakpoints[pc];
+		return "Breakpoint at " + hexFormat(pc,4) + " removed.";
+	}
+
+	return "Breakpoint for " + hexFormat(pc,4) + " not found.";	
+}
+
 function haltBreakpoint(breakName) {
 	var button = document.getElementById("continueButton");
 	var regs   = document.getElementById("registerView");
@@ -819,22 +857,11 @@ function haltBreakpoint(breakName) {
 	var regdump =
 		"<span>tick count: " + emulator.tickCounter + "</span><br>" +
 		"<span>breakpoint: " + breakName + "</span><br>"
-		//"<span onClick=\"cycleNumFormat('pc');\">pc </span>:= " + numericFormat(emulator.pc, regNumFormat["pc"]) + getLabel(emulator.pc) + "<br>" +
-		// real time disassembly of command being performed:
-		//"cmd = " + hexFormat(emulator.m[emulator.pc]) + hexFormat(emulator.m[emulator.pc + 1]).slice(2) + "<br>(" + dissaassmbledInstruction + ")<br>" +
-		//"<span onClick=\"cycleNumFormat('i');\">i := " + numericFormat(emulator.i, regNumFormat["i"]) + getLabel(emulator.i) + "</span><br>";
-		/*
-	for(var k = 0; k <= 0xF; k++) {
-		var hex = k.toString(16).toUpperCase();
-		regdump += "<span onClick=\"cycleNumFormat('"+ k + "');\">v" + hex + " := " + numericFormat(emulator.v[k], regNumFormat[k]) + formatAliases(k) + "</span><br>";
-	}*/
 
-
-
-	// New memory view:
+	// New memory view table:
 	regdump += "<table class=\"memdump\">";
 	regdump += '<tr><td>pc :=</td><td id="txtP0" onclick="memEditEnable(\'P0\')">' + hexFormat(emulator.pc,4) + '</td></tr>'
-	regdump += '<tr><td> i :=</td><td id="txtP1" onclick="memEditEnable(\'P1\')">' + hexFormat(emulator.i,4) + '</td><td>' + getLabel(emulator.i) + '</td></tr>';
+	regdump += '<tr><td>i&nbsp;&nbsp;:=</td><td id="txtP1" onclick="memEditEnable(\'P1\')">' + hexFormat(emulator.i,4) + '</td><td>' + getLabel(emulator.i) + '</td></tr>';
 	// exregdump += '<tr><td>D:</td><td id="txtP2" onclick="memEditEnable(\'P2\')">' + hexFormat(emulator.dt,2,true) + "</td>";
 	for(var k = 0; k <= 0xF; k++) {
 		var lohex = k.toString(16);
@@ -866,9 +893,7 @@ function haltBreakpoint(breakName) {
 	}
 	regdump += "</tr></table>"
 
-	var showDisassembly = false;
-
-	if (showDisassembly) {
+	if (regs.showDisassembly == true) {
 		// Disassemble commands around the PC value
 		// memhi = memhi > 4096 ? 0 : memhi // what is the high limit?
 		// Set this based on emulator.enableXO
@@ -878,22 +903,21 @@ function haltBreakpoint(breakName) {
 		if (memlo < 0) memlo = 0;
 		if (memhi >= memcap) memhi = memcap - 1;
 
-		regdump += "<br>Addr. Byte Disassembly"
+		regdump += '<br><table class="debugger"><tr onClick="cycleCodeView(false)"><td>addr</td><td>data</td><td>disassembly (toggle)</td></tr>';
 		for (var mem = memlo; mem <= memhi; mem += 2)
 		{
-			if (mem == emulator.pc)
-				regdump += "<span class='memhighlight'>";
+			regdump += mem == emulator.pc ? '<tr class="debugger-searchline">': '<tr>'
 			var a = emulator.m[mem];
 			var nn = emulator.m[mem+1];
-			var thisHex = "";
-			thisHex += hexFormat(mem,4).slice(2) + ": ";
-			thisHex += hexFormat(a,2,true) + hexFormat(nn,2,true);
-			regdump += "<br>" + thisHex + " " + realTimeDisassemble(a, nn);
-			if (mem == emulator.pc)
-				regdump += "</span>";
+			regdump += '<td>' + hexFormat(mem,4).slice(2) + '</td>';
+			regdump += '<td>' + hexFormat(a,2,true) + hexFormat(nn,2,true) + '</td>';
+			regdump += '<td>' + realTimeDisassemble(a, nn) + '</td>';
+			if (mem in emulator.metadata.breakpoints)
+				regdump += '<td>\<\<\< ' + escapeHtml(emulator.metadata.breakpoints[mem]) + '</td>';
+			regdump += '</tr>'
 		}
+		regdump += '</table>';
 	} else {
-
 		var dbg = emulator.metadata.dbginfo;
 		// scan backwards & forwards in memory as long as addrs map to nearby lines
 		var pcline = dbg.locs[emulator.pc];
@@ -903,7 +927,7 @@ function haltBreakpoint(breakName) {
 
 		var ind = memlo;
 
-		regdump += '<br><table class="debugger"><tr><td>addr</td><td>data</td><td style="width:40em">source</td></tr>\n';
+		regdump += '<br><table class="debugger"><tr onClick="cycleCodeView(true)"><td>addr</td><td>data</td><td style="width:40em">source (toggle)</td></tr>\n';
 		for (var line = dbg.locs[memlo]; line <= dbg.locs[memhi]; line++) {
 			if (dbg.lines[line].match(/^\s*$/)) continue;  // skip empty lines
 			if (dbg.locs[ind] == line) {
