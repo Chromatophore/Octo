@@ -846,7 +846,7 @@ function removeBreak(pc, name) // Helper functions for console use to remove bre
 		return "Breakpoint at " + hexFormat(pc,4) + " removed.";
 	}
 
-	return "Breakpoint for " + hexFormat(pc,4) + " not found.";	
+	return "Breakpoint for " + hexFormat(pc,4) + " not found.";
 }
 
 function haltBreakpoint(breakName) {
@@ -1026,7 +1026,7 @@ function buildMemBox(memcap, disableAutotracking)
 	}
 	if (memmin % 256 != 0)
 	{
-		memmin = memmin - (memmin % 256) + 256;
+		memmin = memmin - (memmin % 256);
 	}
 
 	var memmax = emulator.m.length;
@@ -1069,13 +1069,13 @@ function buildMemBox(memcap, disableAutotracking)
 		}
 	}
 	// Lock memmax to multiples of 256 to reduce redraws:
-	if (memmax % 256 != 0)
+	if (memmax % 256 != 255)
 	{
-		memmax = memmax - (memmax % 256) + 256;
+		memmax = memmax - (memmax % 256) + 255;
 	}
 
 	document.getElementById("txtM0").innerText = hexFormat(memmin, 4, true);
-	document.getElementById("txtM1").innerText = hexFormat(memmax - 1, 4, true);
+	document.getElementById("txtM1").innerText = hexFormat(memmax, 4, true);
 	if (membox.innerText == "" || document.getElementsByClassName("membyte").length != memmax || memcap == -1)
 	{
 		// New memdump stuff.
@@ -1084,7 +1084,7 @@ function buildMemBox(memcap, disableAutotracking)
 		var wrap = 0;
 		var color = '';
 
-		for (var addr = memmin; addr < memmax; addr++) {
+		for (var addr = memmin; addr <= memmax; addr++) {
 			if (wrap == 0) {
 				memboxdump += '<tr>';
 				memboxdump += "<td>" + hexFormat(addr, 4) + ":</td>";
@@ -1268,7 +1268,7 @@ function memEdit(addr)
 		{
 			oldval = "0000";
 		} else if (addr.substring(1) == "1") {
-			oldval = "FF";
+			oldval = "00FF";
 		}
 	}
 
@@ -1284,10 +1284,6 @@ function memEdit(addr)
 		if (isNaN(parseInt(newval, 16))) // new value is not a number
 		{
 			newval = oldval;
-		}
-		while (newval.toString().length < iLen) // new value is not long enough, pad with 0s
-		{
-			newval = "0" + newval;
 		}
 
 		// Validate numeric depending on input format:
@@ -1308,6 +1304,22 @@ function memEdit(addr)
 		} else if (numeric < 0) {		// allow decimals to be inputted as -ve numbers for ease of use
 			if (format == "dec") {
 				numeric = (numeric + 0x100) & 0xFF;
+			}
+		}
+
+		if (memedit)
+		{
+			if (addr.substring(1) == "0")
+			{
+				if (numeric % 256 != 0)
+				{
+					numeric = numeric - (numeric % 256);
+				}
+			} else if (addr.substring(1) == "1") {
+				if (numeric % 256 != 255)
+				{
+					numeric = numeric - (numeric % 256) + 255;
+				}
 			}
 		}
 
@@ -1334,7 +1346,7 @@ function memEdit(addr)
 				document.getElementById("txt" + addr).innerHTML = newval;
 				buildMemBox(-1, true);
 			}
-			
+
 		} else {
 			newval = oldval;
 		}
