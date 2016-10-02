@@ -287,6 +287,16 @@ function keyDown(event) {
 	}
 }
 
+function interrupt()
+{
+	if (emulator.breakpoint) {
+		clearBreakpoint();
+	}
+	else {
+		haltBreakpoint("user interrupt");
+	}
+}
+
 function keyUp(event) {
 	if (event.keyCode in emulator.keys) {
 		delete emulator.keys[event.keyCode];
@@ -299,12 +309,7 @@ function keyUp(event) {
 	}
 	if (event.keyCode == 27) { reset(); }
 	if (event.keyCode == 73) { // i
-		if (emulator.breakpoint) {
-			clearBreakpoint();
-		}
-		else {
-			haltBreakpoint("user interrupt");
-		}
+		interrupt();
 	}
 	if (event.keyCode == 79 || event.keyCode == 80) { // o or p
 		if (emulator.breakpoint) {
@@ -1457,10 +1462,10 @@ function toggleCodeScroll() {
 		var classes = membox.className.split(" ");
 		classes.splice(classes.indexOf("noscroll"), 1);
 		membox.className = classes.join(" ");
-		scrolllock.innerHTML = "&#128275;";
+		scrolllock.innerHTML = '<img src="images/scrollunlock.png">';
 	} else {
 		membox.className += " noscroll";
-		scrolllock.innerHTML = "&#128274;";
+		scrolllock.innerHTML = '<img src="images/scrolllock.png">';
 	}
 }
 

@@ -278,9 +278,15 @@
 				style="padding-left: 10px;"
 			/>
 			<img
-				title="extended debugger"
-				src="images/screenshot.png"
+				title="memory editor"
+				src="images/memedit.png"
 				onclick="toggleExtendedDebugger()"
+				style="padding-left: 10px;"
+			/>
+			<img
+				title="interrupt"
+				src="images/break.png"
+				onclick="interrupt()"
 				style="padding-left: 10px;"
 			/>
 			<img
@@ -303,7 +309,7 @@
 				<div title="low display memory address" class="memhilo" id="txtM0" onclick="memEditEnable('M0')">-1</div>
 				<div title="high display memory address" class="memhilo" id="txtM1" onclick="memEditEnable('M1')">-1</div>
 				<div title="rescan memory bounds" id="memreload" class="scrolllock" onclick="rescanMemBox()">&#8635;</div>
-				<div title="toggle memory autoscroll" id="memscrolllock" class="scrolllock" onclick="toggleCodeScroll()">&#128275;</div>
+				<div title="toggle memory autoscroll" id="memscrolllock" class="scrolllock" onclick="toggleCodeScroll()"><img src="images/scrollunlock.png"></div>
 			</div>
 			<code class="memorybox" id="memorybox"></code>
 		</div>
