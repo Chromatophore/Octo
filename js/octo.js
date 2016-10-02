@@ -21,6 +21,7 @@ function numericFormat(num, format) {
 	else if (format == "bin") { return binaryFormat(num);  }
 	else if (format == "hex") { return hexFormat(num);     }
 	else if (format == "shorthex") { return hexFormat(num, 2, true); }
+	else if (format == "longhex")  { return hexFormat(num, 4, true); }
 
 	return hexFormat(num);
 }
@@ -1002,15 +1003,22 @@ function memoryUpdate(start_address, num_bytes)
 		{
 			txt.innerText = value;
 		}
-	};
+	}
 }
 
-function buildMemBox(memcap)
+function buildMemBox(memcap, disableAutotracking)
 {
 	var membox = document.getElementById("memorybox");
 
+
+	if (disableAutotracking === true)
+	{
+		membox.disableTracking = true;
+	}
+
+	// Grabbing minimum and maximum values from the boxes
 	var memmin = 0;
-	var imemmin = parseInt(document.getElementById("txtM0").innerText, 16);
+	var imemmin = parseInt(document.getElementById("txtM0").innerText, 16);	// the memory lower limit box
 	if (imemmin == -1)
 	{
 	} else {
@@ -1022,9 +1030,11 @@ function buildMemBox(memcap)
 	}
 
 	var memmax = emulator.m.length;
-	var imemmax = parseInt(document.getElementById("txtM1").innerText, 16);
+	var imemmax = parseInt(document.getElementById("txtM1").innerText, 16);	// the memory upper limit box
 	if (imemmax == -1)
 	{
+		membox.disableTracking = false;
+
 		for(var x = memmax - 1; x >= 0; x--)
 		{
 			if (emulator.m[x] != 0)
@@ -1042,8 +1052,23 @@ function buildMemBox(memcap)
 			memmax = emulator.i + 1;
 		}
 	} else {
+
 		memmax = imemmax;
+
+		if (membox.disableTracking !== true)
+		{
+			// Setting the high water mark if PC or I go above it:
+			if (emulator.pc + 2 > memmax)
+			{
+				memmax = emulator.pc + 2;
+			}
+			if (emulator.i + 1 > memmax)
+			{
+				memmax = emulator.i + 1;
+			}
+		}
 	}
+	// Lock memmax to multiples of 256 to reduce redraws:
 	if (memmax % 256 != 0)
 	{
 		memmax = memmax - (memmax % 256) + 256;
@@ -1053,16 +1078,12 @@ function buildMemBox(memcap)
 	document.getElementById("txtM1").innerText = hexFormat(memmax - 1, 4, true);
 	if (membox.innerText == "" || document.getElementsByClassName("membyte").length != memmax || memcap == -1)
 	{
-		// Display the memory cap:
-		//exregdump += "<br><br>Memory space: " + memcap;
 		// New memdump stuff.
 		var memboxdump = "";
 		memboxdump += '<br><table class="memdump"><tr><td>addr</td><td colspan="16">data</td></tr>\n';
-		//regdump += "<br>";
 		var wrap = 0;
 		var color = '';
-		//for (var addr = memlo; addr < memhi; addr++) {
-		//for (var addr = 0; addr <= memcap; addr++) {
+
 		for (var addr = memmin; addr < memmax; addr++) {
 			if (wrap == 0) {
 				memboxdump += '<tr>';
@@ -1242,6 +1263,7 @@ function memEdit(addr)
 	} else if (memedit) {					// Memory min/max fields for memviewer - hex only
 		iLen = 4;
 		iMax = 0xFFFF;
+		format = "longhex";
 		if (addr.substring(1) == "0")
 		{
 			oldval = "0000";
@@ -1270,7 +1292,7 @@ function memEdit(addr)
 
 		// Validate numeric depending on input format:
 		var numeric = 0;
-		if (format == "hex" || format == "shorthex")
+		if (format == "hex" || format == "shorthex" || format == "longhex")
 			numeric = parseInt(newval, 16);
 		else if (format == "bin")
 			numeric = parseInt(newval, 2);
@@ -1291,6 +1313,9 @@ function memEdit(addr)
 
 		// if the result is now in the valid range of values, which it most likely will be due to the above filtering:
 		if (numeric >= 0 && numeric <= iMax) {
+
+			newval = numericFormat(numeric,format);
+
 			if (!register && !pointer && !memedit) {
 				emulator.m[addr] = numeric;
 			} else if (register) {
@@ -1305,10 +1330,11 @@ function memEdit(addr)
 				}
 				buildMemBox(emulator.m.length);
 			} else if (memedit) {
+				// we need the values in the text box at this point:
 				document.getElementById("txt" + addr).innerHTML = newval;
-				buildMemBox(-1);
+				buildMemBox(-1, true);
 			}
-			newval = numericFormat(numeric,format);
+			
 		} else {
 			newval = oldval;
 		}
