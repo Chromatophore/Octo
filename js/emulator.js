@@ -1,29 +1,32 @@
 "use strict";
 
-var keymap = [
-	// chip8    // keyboard
-	/* 0 */ 88, // x
-	/* 1 */ 49, // 1
-	/* 2 */ 50, // 2
-	/* 3 */ 51, // 3
-	/* 4 */ 81, // q
-	/* 5 */ 87, // w
-	/* 6 */ 69, // e
-	/* 7 */ 65, // a
-	/* 8 */ 83, // s
-	/* 9 */ 68, // d
-	/* A */ 90, // z
-	/* B */ 67, // c
-	/* C */ 52, // 4
-	/* D */ 82, // r
-	/* E */ 70, // f
-	/* F */ 86  // v
-];
-
-var keymapInverse = [];
-for (var i = 0, len = keymap.length; i < len; i++) {
-	keymapInverse[keymap[i]] = i;
+function invertKeymap(k) {
+	return Object.keys(k).reduce((a,b) => {
+		Object.keys(k[b]).forEach(x => a[x]=+b)
+		return a
+	}, {})
 }
+
+var keymap = (this.STATIC_KEYMAP) || JSON.parse(localStorage.getItem('octoKeymap')) || {
+	0x0: { x:1 },
+	0x1: { 1:1 },
+	0x2: { 2:1 },
+	0x3: { 3:1 },
+	0x4: { q:1 },
+	0x5: { w:1, ArrowUp:1 },
+	0x6: { e:1, ' ':1 },
+	0x7: { a:1, ArrowLeft:1 },
+	0x8: { s:1, ArrowDown:1 },
+	0x9: { d:1, ArrowRight:1 },
+	0xA: { z:1 },
+	0xB: { c:1 },
+	0xC: { 4:1 },
+	0xD: { r:1 },
+	0xE: { f:1 },
+	0xF: { v:1 },
+}
+
+var keymapInverse = invertKeymap(keymap)
 
 var font = [
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -84,8 +87,10 @@ function Emulator() {
 	this.vfOrderQuirks      = false;
 	this.clipQuirks         = false;
 	this.jumpQuirks         = false;
-	this.enableXO           = false;
+	this.vBlankQuirks       = false;
+	this.enableXO           = true;
 	this.screenRotation     = 0;
+	this.maxSize            = 3584;
 	this.maskFormatOverride = true;
 	this.numericFormatStr   = "default";
 
@@ -102,12 +107,13 @@ function Emulator() {
 	this.flags = [];    // semi-persistent hp48 flag vars
 	this.pattern = [];  // audio pattern buffer
 	this.plane = 1;     // graphics plane
+	this.profile_data = {};
 
 	// control/debug state
 	this.keys = {};       // track keys which are pressed
 	this.waiting = false; // are we waiting for a keypress?
 	this.waitReg = -1;    // destination register of an awaited key
-	this.halted = false;
+	this.halted = true;
 	this.breakpoint = false;
 	this.metadata = {};
 	this.tickCounter = 0;
@@ -121,6 +127,12 @@ function Emulator() {
 	this.init = function(rom) {
 		// initialise memory with a new array to ensure that it is of the right size and is initiliased to 0
 		this.m = this.enableXO ? new Uint8Array(0x10000) : new Uint8Array(0x1000);
+
+		this.p = [[], []];
+		if (this.enableXO)
+			for(var z = 0; z < 64*128; z++) { this.p[0][z] = 0; this.p[1][z] = 0; }
+		else
+			for(var z = 0; z < 32*64; z++) { this.p[0][z] = 0; this.p[1][z] = 0; }
 
 		// initialize memory
 		for(var z = 0; z < 32*64;          z++) { this.p[0][z] = 0; this.p[1][z] = 0; }
@@ -145,8 +157,10 @@ function Emulator() {
 		this.waitReg = -1;
 		this.halted = false;
 		this.breakpoint = false;
+		this.stack_breakpoint = -1;
 		this.metadata = rom;
 		this.tickCounter = 0;
+		this.profile_data = {};
 	}
 
 	this.writeCarry = function(dest, value, flag) {
@@ -298,7 +312,15 @@ function Emulator() {
 		haltBreakpoint("machine code is not supported.");
 	}
 
+	this.skip = function() {
+		var op = (this.m[this.pc  ] << 8) | this.m[this.pc+1];
+		this.pc += (op == 0xF000) ? 4 : 2;
+	}
+
 	this.opcode = function() {
+		// Increment profilining data
+		this.profile_data[this.pc] = (this.profile_data[this.pc] || 0) + 1;
+
 		// decode the current opcode
 		var op  = (this.m[this.pc  ] << 8) | this.m[this.pc+1];
 		var o   = (this.m[this.pc  ] >> 4) & 0x00F;
@@ -327,12 +349,12 @@ function Emulator() {
 		}
 		if ((op & 0xF0FF) == 0xE09E) {
 			// if -key
-			if (keymap[this.v[x]] in this.keys) { this.pc += 2; }
+			if (Object.keys(keymap[this.v[x]]).some(x => x in this.keys)) { this.skip(); }
 			return;
 		}
 		if ((op & 0xF0FF) == 0xE0A1) {
 			// if key
-			if (!(keymap[this.v[x]] in this.keys)) { this.pc += 2; }
+			if (!Object.keys(keymap[this.v[x]]).some(x => x in this.keys)) { this.skip(); }
 			return;
 		}
 		if ((op & 0xFFF0) == 0x00C0) {
@@ -340,7 +362,7 @@ function Emulator() {
 			var rowSize = this.hires ? 128 : 64;
 			for(var layer = 0; layer < 2; layer++) {
 				if ((this.plane & (layer+1)) == 0) { continue; }
-				for(var z = this.p[layer].length; z >= 0; z--) {
+				for(var z = this.p[layer].length - 1; z >= 0; z--) {
 					this.p[layer][z] = (z >= rowSize * n) ? this.p[layer][z - (rowSize * n)] : 0;
 				}
 			}
@@ -438,16 +460,16 @@ function Emulator() {
 			case 0x0: this.machine(nnn);                            break;
 			case 0x1: this.pc = nnn;                                break;
 			case 0x2: this.call(nnn);                               break;
-			case 0x3: if (this.v[x] == nn)        { this.pc += 2; } break;
-			case 0x4: if (this.v[x] != nn)        { this.pc += 2; } break;
-			case 0x5: if (this.v[x] == this.v[y]) { this.pc += 2; } break;
+			case 0x3: if (this.v[x] == nn)        { this.skip(); }  break;
+			case 0x4: if (this.v[x] != nn)        { this.skip(); }  break;
+			case 0x5: if (this.v[x] == this.v[y]) { this.skip(); }  break;
 			case 0x6: this.v[x] = nn;                               break;
 			case 0x7: this.v[x] = (this.v[x] + nn) & 0xFF;          break;
 			case 0x8: this.math(x, y, n);                           break;
-			case 0x9: if (this.v[x] != this.v[y]) { this.pc += 2; } break;
+			case 0x9: if (this.v[x] != this.v[y]) { this.skip(); }  break;
 			case 0xA: this.i = nnn;                                 break;
 			case 0xB: this.jump0(nnn);                              break;
-			case 0xC: this.v[x] = (Math.random()*255)&nn;           break;
+			case 0xC: this.v[x] = (Math.random()*256)&nn;           break;
 			case 0xD: this.sprite(this.v[x], this.v[y], n);         break;
 			case 0xF: this.misc(x, nn);                             break;
 			default: haltBreakpoint("unknown opcode "+o);

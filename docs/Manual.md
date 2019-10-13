@@ -7,7 +7,7 @@ Octo Assembly Language
 
 Octo programs are a series of _tokens_ separated by whitespace. Some tokens represent Chip8 instructions and some tokens are _directives_ which instruct Octo to do some special action as the program is compiled. The `:` directive, followed by a name (which cannot contain spaces) defines a _label_. A label represents a memory address- a location in your program. You must define at least one label called `main` which serves as the entrypoint to your program.
 
-Using a label by itself will perform a subroutine call to the address the label represents. A semicolon (`;`) is another way to write `return`, which returns from a subroutine. The `#` directive is a single-line comment; it ignores the rest of the current line. Numbers can be written using `0x` or `0b` prefixes to indicate hexadecimal or binary encodings, respectively.
+Using a label by itself will perform a subroutine call to the address the label represents. Alternatively, you can be more explicit by using `:call` followed by an address or name. A semicolon (`;`) is another way to write `return`, which returns from a subroutine. The `#` directive is a single-line comment; it ignores the rest of the current line. Numbers can be written using `0x` or `0b` prefixes to indicate hexadecimal or binary encodings, respectively.
 
 Numeric constants can be defined with the `:const` directive followed by a name and then a value, which may be a number, another constant or a (non forward-declared) label. Registers may be given named aliases with `:alias` followed by a name and then a register. The `i` register may not be given an alias, but v registers can be given as many aliases as desired. Here are some examples of constants and aliases:
 
@@ -26,6 +26,8 @@ In the following descriptions, `vx` and `vy` refer to some register name (v0-vF)
 	 4 5 6 D     q w e r
 	 7 8 9 E     a s d f
 	 A 0 B F     z x c v
+
+For convenience, Octo predefines constants beginning with `OCTO_KEY_` for each keyboard key with the value of the corresponding Chip8 key. For example, `OCTO_KEY_W` has a value of `5`.
 
 Statements
 ----------
@@ -146,6 +148,54 @@ Another type of self-modifying code that comes up frequently is overwriting the 
 
 You can also specify an address at which subsequent instructions should be compiled by using `:org` followed by an address. The use of this operative is very brittle, so it should be avoided unless absolutely necessary.
 
+Metaprogramming
+---------------
+Sometimes your code will contain repetitive patterns that don't make sense to break out into subroutines. Perhaps they differ by the registers they operate upon, or for performance reasons you need to avoid the overhead of a call and a return. The `:macro` command is the solution. It takes a name, followed by names for 0 or more arguments, then a `{`, a sequence of arbitrary Octo statements and finally a terminal `}`. When you reference the name of a macro, you must provide tokens corresponding to each argument, and then Octo will inline the contents of the macro with any instances of the argument names substituted by the input tokens. Here's a trivial use and definition example:
+
+	:macro swap A B {
+		vf := A
+		A  := B
+		B  := vf
+	}
+
+	...
+
+	swap v0 v1
+	swap v2 v1
+
+This generates code equivalent to the following:
+
+	vf := v0
+	v0 := v1
+	v1 := vf
+	vf := v2
+	v2 := v1
+	v1 := vf
+
+Macros must be defined before expansion, and macro definitions may not be nested, but macro invocations may appear within macro definitions.
+
+Sometimes there is an arithmetic relationship between constants in your program. Rather than computing them by hand, the `:calc` command allows you to perform calculations at compile time. It takes a name, followed by a `{`, a sequence of numbers, constant references, binary operators, unary operators or parentheses, and finally a terminal `}`. The name is assigned to the result of evaluating the expression within curly braces. The following operators are available:
+
+	unary:  - ~ ! sin cos tan exp log abs sqrt sign ceil floor @
+	binary: - + * / % & | ^ << >> pow min max < <= == != >= >
+
+The unary operator `@` looks up an address in the compiled ROM at the time of evaluation. Logical operators return `0` or `1` to indicate false or true, respectively. Additionally, the mathematical constants `E` and `PI` are usable, and the constant `HERE` indicates the address immediately following the end of the compiled ROM at the time of evaluation.
+
+Note that as with all Octo commands, the tokens of a `:calc` expression must be separated by whitespace. Bitwise operations are performed as if arguments were 32-bit signed integers, and otherwise they are treated as floating-point. When referenced, calculated constants are truncated to integegral values as appropriate. Order of evaluation is strictly right-to-left unless overridden by parentheses. The following expressions are equivalent:
+
+	:calc foo { 2 * 3 + baz }
+	:calc foo { 2 * ( 3 + baz ) }
+
+When using `:calc` and `:macro` together, it is often useful to write the contents of some constant to the ROM; this can be done with `:byte`:
+
+	:macro with-complement X {
+		:calc Y { 0xFF & ~ X }
+		:byte X
+		:byte Y
+	}
+
+For convenience and brevity, if `:byte` is immediately followed by `{` the expression is computed as with `:calc` and compiled as a byte, without defining an intermediate constant. The `:org` and `:call` operatives can also accept a constant expression, truncated to a 16-bit or 12-bit address, respectively.
+
 SuperChip
 ---------
 SuperChip or SCHIP is a set of extended Chip8 instructions. Octo can emulate these instructions and will indicate if any such instructions are used in an assembled program. The SuperChip instructions are as follows:
@@ -179,6 +229,10 @@ For more details, consult the XO-Chip specification in Octo's documentation dire
 
 Debugging
 ---------
-Octo provides basic debugging facilities for Chip8 programs. While a program is running, pressing the "i" key will interrupt execution and display the contents of the `v` registers, `i` and the program counter. Any register aliases and (guessed) labels will be indicated next to the raw register contents. When interrupted, pressing "i" again or clicking the "continue" icon will resume execution, while pressing "o" will single-step through the program. Note that while single-stepping the Chip8 timers will not count down.
+Octo provides basic debugging facilities for Chip8 programs. While a program is running, pressing the "i" key will interrupt execution and display the contents of the `v` registers, `i` and the program counter. Any register aliases and (guessed) labels will be indicated next to the raw register contents. You can click on registers in this view to cycle through displaying their contents in binary, decimal, or hexadecimal.
+
+When interrupted, pressing "i" again or clicking the "continue" icon will resume execution, while pressing "o" will single-step through the program. The "u" key will attempt to step out (execute until the current subroutine returns) and the "l" key will attempt to step over (execute the contents of any subroutines until they return to the current level).
+
+Pressing the "p" key will interrupt execution and display a profiler, indicating a best guess at the time spent in subroutines within your program so far. The profiler shows the top 20 results in a table, and you can also copy and paste a more detailed dump of profiling information for further analysis offline.
 
 Breakpoints can also be placed in source code by using the command `:breakpoint` followed by a name- the name will be shown when the breakpoint is encountered so that multiple breakpoints can be readily distinguished. `:breakpoint` is an out-of-band debugging facility and inserting a breakpoint into your program will not add any code or modify any Chip8 registers.

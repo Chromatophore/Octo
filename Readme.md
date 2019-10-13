@@ -12,9 +12,52 @@ Octo
 	 7 8 9 E     a s d f
 	 A 0 B F     z x c v
 
-To learn more about Chip8 programming techniques, have a look at the [documentation](https://github.com/JohnEarnest/Octo/tree/gh-pages/docs) section as well as [the manual](https://github.com/JohnEarnest/Octo/tree/gh-pages/docs/Manual.md) for Octo assembly language. Octo fully supports [SuperChip](https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/SuperChip.md) extended instructions as well as a set of original extended instructions called [XO-Chip](https://github.com/JohnEarnest/Octo/tree/gh-pages/docs/XO-ChipSpecification.md). Written any neat programs with Octo, or looking for help? Try the [Octo Programming Google Group](https://groups.google.com/forum/#!forum/octo-programming). Once a year, every October, the [AwfulJams](http://www.awfuljams.com) hosts an Octo-based Chip8 game jam. If you like Octo, check it out!
+Links
+-----
+General information:
 
-The Octo assembler can also be used as a command-line tool via a [Node.js](http://nodejs.org) fontend:
+- [Language Manual](https://github.com/JohnEarnest/Octo/tree/gh-pages/docs/Manual.md)
+- [Beginner's Guide](https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/BeginnersGuide.md)
+- [Intermediate Guide](https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/IntermediateGuide.md)
+- [Programming Techniques Guide](https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/Chip8%20Programming.md)
+- [Metaprogramming Cookbook](https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/MetaProgramming.md)
+- [SuperChip Extensions](https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/SuperChip.md)
+- [XO-Chip Extensions](https://github.com/JohnEarnest/Octo/tree/gh-pages/docs/XO-ChipSpecification.md)
+- [Octo Programming Google Group](https://groups.google.com/forum/#!forum/octo-programming)
+- [OctoJam](http://octojam.com) an Octo-centric game jam held every October.
+- [Chip-8 Archive](https://github.com/JohnEarnest/chip8Archive) A curated gallery of Chip-8 Programs.
+
+Third-party tools and references:
+
+- [Mastering Chip-8](http://mattmik.com/chip8.html) the most accurate Chip-8 reference online.
+- [HP48 SuperChip](https://github.com/Chromatophore/HP48-Superchip) research into the quirks and behavior of SuperChip.
+- [Sublime Text syntax definitions](https://github.com/mattmikolay/octo-sublime)
+- [Atom syntax definitions](https://github.com/james0x0A/language-octo)
+- [Emacs syntax definitions](https://github.com/cryon/octo-mode)
+- [Vim syntax definitions](https://github.com/jackiekircher/vim-chip8)
+- [VSCode syntax definitions/integration](https://github.com/hoovercj/vscode-octo)
+- [OctoFont](https://github.com/jdeeny/octofont) .TTF font converter.
+- [wernsey chip8](https://github.com/wernsey/chip8) an alternative assembler/disassembler.
+- [EZ-Bake Animator](http://beyondloom.com/tools/ezbake.html) a graphics preparation tool.
+
+Third-party games, programs and libraries:
+
+- [KNIGHT](https://github.com/simonklitjohnson/Knight) by Simon Klit-Johnson. (Game)
+- [OCTOPEG](https://github.com/Chromatophore/Octopeg) by Chromatophore. (Game)
+- [Masquer8](https://github.com/Chromatophore/Masquer8) by Chromatophore. (Game)
+- [Glitch Ghost](https://github.com/jackiekircher/glitch-ghost) by Jackie Kircher. (Game)
+- [CosmacCalc](https://abitoutofplace.wordpress.com/2015/05/02/cosmaccalc-the-cosmac-vip-s-place-in-spreadsheet-history/) a COSMAC VIP spreadsheet built with Octo.
+- [Misc Samples](https://github.com/buffis/misc-samples/tree/master/Octo) small programs by Björn Kempen.
+- [Stack](https://github.com/jackiekircher/stack.8o) reusable stack data structure.
+- [Chip8-multiply](https://github.com/jdeeny/chip8-multiply) reusable multiplication routines.
+- [Octo-Lfsr64](https://github.com/jdeeny/octo-lfsr64) reusable PRNG implementation.
+
+If you've built a project on, with, or for Octo and you'd like to have a link added to this list, submit a pull request!
+
+Command Line Mode
+-----------------
+
+The Octo assembler can also be used as a command-line tool via a [Node.js](http://nodejs.org) frontend:
 
 	$ ./octo
 		usage: octo [--decompile] [--roundtrip] [--qshift]
@@ -30,7 +73,11 @@ The Octo assembler can also be used as a command-line tool via a [Node.js](http:
 
 The `--decompile` option can be used to send an existing Chip8 binary through Octo's general-purpose decompiler.
 
-Octo has a `share` feature which stores source code and configuration metadata in Github gists. Following one of these links will run the program and then you can back out into the Octo IDE. Alternatively, you can use these urls to embed a Chip8 emulator in an `iframe` on your websites:
+Sharing Your Programs
+---------------------
+Octo has a `share` feature which stores source code and configuration metadata and produces a URL you can share with others. By default, Octo stores programs in its own backend, indexed based on a `key`. Alternatively, you can store your program in a GitHub gist and specify a `gist` argument in the Octo URL. The example below demonstrates the structure Octo expects in a Gist.
+
+You can also use the `gist` id or `key` to embed a Chip8 emulator in an `iframe` on your websites:
 
 	<iframe
 		src="http://johnearnest.github.io/Octo/embed.html?scale=2&gist=f3685a75817cde6d5c0d"
@@ -41,6 +88,8 @@ Octo has a `share` feature which stores source code and configuration metadata i
 (Special thanks to rmmh.)
 
 The `scale` argument is optional and specifies the number of pixels which should make up a high-resolution mode Chip8 pixel. Low-resolution mode pixels will be twice this size.
+
+Alternatively, using the "Save HTML" button in the "Binary Tools" panel of the toolbox, you can generate a single HTML file containing the Octo emulator and your program, allowing you to easily host a game yourself or on sites like Itch.io.
 
 Licensing
 ---------

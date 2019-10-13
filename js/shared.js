@@ -9,27 +9,31 @@
 var scaleFactor = 5;
 var renderTarget = "target";
 
+const optionFlags = [
+	"tickrate",
+	"fillColor",
+	"fillColor2",
+	"blendColor",
+	"backgroundColor",
+	"buzzColor",
+	"quietColor",
+	"shiftQuirks",
+	"loadStoreQuirks",
+	"vfOrderQuirks",
+	"clipQuirks",
+	"vBlankQuirks",
+	"jumpQuirks",
+	"screenRotation",
+	"maxSize",
+]
 function unpackOptions(emulator, options) {
-	var flags = [
-		"tickrate",
-		"fillColor",
-		"fillColor2",
-		"blendColor",
-		"backgroundColor",
-		"buzzColor",
-		"quietColor",
-		"shiftQuirks",
-		"loadStoreQuirks",
-		"vfOrderQuirks",
-		"clipQuirks",
-		"jumpQuirks",
-		"enableXO",
-		"screenRotation",
-	]
-	for (var x = 0; x < flags.length; x++) {
-		var flag = flags[x];
-		if (options[flag]) { emulator[flag] = options[flag]; }
-	}
+	optionFlags.forEach(x => { if (x in options) emulator[x] = options[x] })
+	if (options["enableXO"]) emulator.maxSize = 65024 // legacy option
+}
+function packOptions(emulator) {
+	const r = {}
+	optionFlags.forEach(x => r[x] = emulator[x])
+	return r
 }
 
 function setRenderTarget(scale, canvas) {
@@ -48,14 +52,10 @@ function setRenderTarget(scale, canvas) {
 	if (emulator.screenRotation == 90 || emulator.screenRotation == 270) {
 		c.width  = h;
 		c.height = w;
-		c.style.marginLeft = hm;
-		c.style.marginTop  = wm;
 	}
 	else {
 		c.width  = w;
 		c.height = h;
-		c.style.marginLeft = wm;
-		c.style.marginTop  = hm;
 	}
 }
 
@@ -105,38 +105,41 @@ function renderDisplay(emulator) {
 	var c = document.getElementById(renderTarget);
 
 	// Canvas rendering can be expensive. Exit out early if nothing has changed.
-	// NOTE: toggling emulator.hires changes emulator.p dimensions.
-	var colors = [emulator.backColor, emulator.fillColor, emulator.fillColor2, emulator.blendColor];
-	if (c.last !== undefined
-			&& arrayEqual(c.last.p[0], emulator.p[0]) && arrayEqual(c.last.p[1], emulator.p[1])
-			&& arrayEqual(c.last.colors, colors)) {
-		return;
+	var colors = [emulator.backgroundColor, emulator.fillColor, emulator.fillColor2, emulator.blendColor];
+	if (c.last !== undefined) {
+		if (arrayEqual(c.last.p[0], emulator.p[0]) && arrayEqual(c.last.p[1], emulator.p[1])
+				&& arrayEqual(c.last.colors, colors)) {
+			return;
+		}
+		if (c.last.hires !== emulator.hires)
+			c.last = undefined;  // full redraw when switching resolution
 	}
-	c.last = {
-		colors: colors,
-		p: [emulator.p[0].slice(), emulator.p[1].slice()]
-	};
-
 	var g = c.getContext("2d");
 	getTransform(emulator, g);
-	g.fillStyle = emulator.backgroundColor;
-	g.fillRect(0, 0, c.width, c.height);
-	var max    = emulator.hires ? 128*64      : 64*32;
-	var stride = emulator.hires ? 128         : 64;
+	var w      = emulator.hires ? 128         : 64;
+	var h      = emulator.hires ? 64          : 32;
 	var size   = emulator.hires ? scaleFactor : scaleFactor*2;
+	var lastPixels = c.last !== undefined? c.last.p: [[], []]
 
-	for(var z = 0; z < max; z++) {
-		var color = getColor(emulator.p[0][z] + (emulator.p[1][z] * 2));
-		if (color == emulator.backColor) {
-			continue;  // it's pointless to draw the background color
+	g.scale(size, size)
+	var z = 0;
+	for(var y = 0; y < h; ++y) {
+		for(var x = 0; x < w; ++x, ++z) {
+			var oldColorIdx = lastPixels[0][z] + (lastPixels[1][z] << 1);
+			var colorIdx = emulator.p[0][z] + (emulator.p[1][z] << 1);
+			if (oldColorIdx !== colorIdx) {
+				g.fillStyle = getColor(colorIdx);
+				g.fillRect(x, y, 1, 1);
+			}
 		}
-		g.fillStyle = color;
-		g.fillRect(
-			Math.floor(z%stride)*size,
-			Math.floor(z/stride)*size,
-			size, size
-		);
 	}
+	g.scale(1, 1) //restore scale to 1,1 just in case
+
+	c.last = {
+		colors: colors,
+		p: [emulator.p[0].slice(), emulator.p[1].slice()],
+		hires: emulator.hires,
+	};
 }
 
 ////////////////////////////////////
@@ -213,6 +216,15 @@ function audioSetup() {
 
 			while(index < samples_n) {
 				outputData[index++] = 0;
+			}
+			//the last one can be long sound with high value of buzzer, so always keep it
+			if (audioData.length > 1) {
+				var audioDataSize = 0;
+				var audioBufferSize = audioNode.bufferSize;
+				audioData.forEach(function(buffer) { audioDataSize += buffer.duration; })
+				while(audioDataSize > audioBufferSize && audioData.length > 1) {
+					audioDataSize -= audioData.shift().duration;
+				}
 			}
 		}
 		audioData = [];
