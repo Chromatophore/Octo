@@ -6,6 +6,7 @@ const binaryInput    = document.getElementById('fileinput')
 const binaryFilename = document.getElementById('binary-filename')
 const binaryEditor   = textBox(document.getElementById('binary-editor'), false, '')
 const decompilerMode = radioBar(document.getElementById('decompiler-mode'), 'static', x => {})
+const lintMode       = radioBar(document.getElementById('linter-mode'), 'none', x => emulator.linted = x == 'pedantic')
 radioBar(document.getElementById('decompiler-numbers'), 'hex', x => emulator.numericFormatStr = x)
 
 function decompileRaw(rom) {
@@ -25,7 +26,6 @@ function decompileStatic(rom) {
 	analyzeInit(rom, {
 		shiftQuirks:     emulator.shiftQuirks,
 		loadStoreQuirks: emulator.loadStoreQuirks,
-		vfOrderQuirks:   emulator.vfOrderQuirks,
 		jumpQuirks:      emulator.jumpQuirks,
 	})
 	const process = _ => {
@@ -77,12 +77,6 @@ document.getElementById('binary-save-cart').onclick = _ => {
 	setVisible(cartModal, true, 'flex')
 	cartImageBytes = null
 	cartDesc.setValue('')
-}
-document.getElementById('binary-save-html').onclick = _ => {
-	const name = binaryFilename.value
-	buildStandalone(x => {
-		saveAs(new Blob([x], {type: 'text/html;charset=utf-8'}, name+'.html'))
-	})
 }
 writeBytes(binaryEditor, null, [0xD0, 0x15, 0x70, 0x04, 0x40, 0x40, 0x71, 0x05, 0x40, 0x40, 0x60, 0x00, 0x12, 0x00])
 
@@ -160,4 +154,34 @@ document.getElementById('cartridge-save').onclick = _ => {
 	const cart = buildCartridge(getCartridgeLabel(), preparePayload(), cartImageBytes)
 	saveAs(new Blob([new Uint8Array(cart)], {type: 'image/gif'}), binaryFilename.value+'.gif')
 	setVisible(cartModal, false)
+}
+
+/**
+* HTML Export
+**/
+
+const htmlModal = document.getElementById('html-modal')
+const htmlScale = radioBar(document.getElementById('html-scale'), 4, x => {})
+const htmlInput = radioBar(document.getElementById('html-input-mode'), 'none', x => {})
+const keyConfigStandalone = checkBox(document.getElementById('key-config-standalone' ), false, x => keymap.staticExport = x)
+
+document.getElementById('binary-save-html').onclick = _ => {
+	htmlInput.setValue(emulator.touchInputMode)
+	keyConfigStandalone.setValue(keymap.staticExport == true)
+	setVisible(htmlModal, true)
+}
+document.getElementById('html-cancel').onclick = _ => {
+	setVisible(htmlModal, false)
+}
+document.getElementById('html-save').onclick = _ => {
+	setVisible(htmlModal, false)
+	const name = binaryFilename.value
+	const options = {
+		staticKeymap: keyConfigStandalone.getValue(),
+		scale:        htmlScale.getValue(),
+		inputMode:    htmlInput.getValue(),
+	}
+	buildStandalone(x => {
+		saveAs(new Blob([x], {type: 'text/html;charset=utf-8'}, name+'.html'))
+	}, options)
 }

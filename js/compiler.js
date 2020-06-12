@@ -189,6 +189,7 @@ function Compiler(source) {
 	this.schip = false;
 	this.xo = false;
 	this.breakpoints = {}; // map<address, name>
+	this.monitors = {}; // map<name, {base, length}>
 	this.hereaddr = 0x200;
 
 	this.pos = null;
@@ -292,20 +293,23 @@ Compiler.prototype.checkName = function(name, kind) {
 	return name;
 }
 
-Compiler.prototype.veryWideValue = function() {
+Compiler.prototype.veryWideValue = function(noForward) {
 	// i := long NNNN
 	var nnnn = this.next();
 	if (typeof nnnn != "number") {
 		if (nnnn in this.constants) {
 			nnnn = this.constants[nnnn];
 		}
+		else if (nnnn in this.dict) {
+			nnnn = this.dict[nnnn];
+		}
+		else if (noForward) {
+			throw "The reference to '"+nnnn+"' may not be forward-declared.";
+		}
 		else if (nnnn in this.protos) {
 			this.protos[nnnn].push(this.here()+2);
 			this.longproto[this.here()+2] = true;
 			nnnn = 0;
-		}
-		else if (nnnn in this.dict) {
-			nnnn = this.dict[nnnn];
 		}
 		else {
 			this.protos[this.checkName(nnnn, "label")] = [this.here()+2];
@@ -376,7 +380,7 @@ Compiler.prototype.tinyValue = function() {
 Compiler.prototype.conditional = function(negated) {
 	var reg   = this.register();
 	var token = this.next();
-	var compTemp = this.aliases["compare-temp"];
+	var compTemp = 0xF;
 	if (negated) {
 		if      (token == "=="  ) { token = "!="; }
 		else if (token == "!="  ) { token = "=="; }
@@ -404,26 +408,26 @@ Compiler.prototype.conditional = function(negated) {
 	else if (token == ">") {
 		if (this.isRegister()) { this.fourop(0x8, compTemp, this.register(), 0x0); }
 		else                   { this.inst  (0x60 | compTemp, this.shortValue()); }
-		this.fourop(0x8, compTemp, reg, 0x5); // ve -= v1
-		this.inst(0x3F, 1);                   // if vf == 1 then ...
+		this.fourop(0x8, compTemp, reg, 0x5); // vf -= v1
+		this.inst(0x4F, 0);                   // if vf != 0 then ...
 	}
 	else if (token == "<") {
 		if (this.isRegister()) { this.fourop(0x8, compTemp, this.register(), 0x0); }
 		else                   { this.inst  (0x60 | compTemp, this.shortValue()); }
-		this.fourop(0x8, compTemp, reg, 0x7); // ve =- v1
-		this.inst(0x3F, 1);                   // if vf == 1 then ...
+		this.fourop(0x8, compTemp, reg, 0x7); // vf =- v1
+		this.inst(0x4F, 0);                   // if vf != 0 then ...
 	}
 	else if (token == ">=") {
 		if (this.isRegister()) { this.fourop(0x8, compTemp, this.register(), 0x0); }
 		else                   { this.inst  (0x60 | compTemp, this.shortValue()); }
-		this.fourop(0x8, compTemp, reg, 0x7); // ve =- v1
-		this.inst(0x4F, 1);                   // if vf != 1 then ...
+		this.fourop(0x8, compTemp, reg, 0x7); // vf =- v1
+		this.inst(0x3F, 0);                   // if vf == 0 then ...
 	}
 	else if (token == "<=") {
 		if (this.isRegister()) { this.fourop(0x8, compTemp, this.register(), 0x0); }
 		else                   { this.inst  (0x60 | compTemp, this.shortValue()); }
-		this.fourop(0x8, compTemp, reg, 0x5); // ve -= v1
-		this.inst(0x4F, 1);                   // if vf != 1 then ...
+		this.fourop(0x8, compTemp, reg, 0x5); // vf -= v1
+		this.inst(0x3F, 0);                   // if vf == 0 then ...
 	}
 	else {
 		throw "Conditional flag expected, got '" + token + "!";
@@ -527,11 +531,12 @@ Compiler.prototype.resolveLabel = function(offset) {
 }
 
 Compiler.prototype.parseTerminal = function(name) {
-	// NUMBER | CONSTANT | LABEL | '(' expression ')'
+	// NUMBER | CONSTANT | LABEL | VREGISTER | '(' expression ')'
 	var x = this.peek();
 	if (x == 'PI'  ) { this.next(); return Math.PI; }
 	if (x == 'E'   ) { this.next(); return Math.E; }
 	if (x == 'HERE') { this.next(); return this.hereaddr; }
+	if (this.isRegister(x)) { this.next(); return this.register(x); }
 	if (+x == +x) { return +this.next(); }
 	if (x in this.constants)  { return this.constants[this.next()]; }
 	if (x in this.dict)       { return this.dict[this.next()]; }
@@ -575,6 +580,7 @@ Compiler.prototype.instruction = function(token) {
 		this.inst(0x60 | this.aliases["unpack-lo"], a);
 	}
 	else if (token == ":breakpoint") { this.breakpoints[this.here()] = this.next(); }
+	else if (token == ":monitor") { this.monitors[this.peek()] = { base:this.veryWideValue(true), length:this.veryWideValue(true) }; }
 	else if (token == ":proto")  { this.next(); } // deprecated.
 	else if (token == ":alias")  { this.aliases[this.checkName(this.next(), "alias")] = this.register(); }
 	else if (token == ":const")  {
@@ -598,11 +604,11 @@ Compiler.prototype.instruction = function(token) {
 			body.push(this.raw());
 		}
 		if (this.next() != '}') { throw "Expected '}' for definition of macro '"+name+"'."; }
-		this.macros[name] = { args: args, body: body };
+		this.macros[name] = { args: args, body: body, calls:0 };
 	}
 	else if (token in this.macros) {
 		var macro = this.macros[token];
-		var bindings = {};
+		var bindings = { 'CALLS':[macro.calls++,0,0] };
 		for (var x = 0; x < macro.args.length; x++) {
 			if (this.end()) {
 				throw "Not enough arguments for expansion of macro '"+token+"'";
@@ -762,9 +768,8 @@ Compiler.prototype.instruction = function(token) {
 }
 
 Compiler.prototype.go = function() {
-	this.aliases["compare-temp"] = 0xE;
-	this.aliases["unpack-hi"]    = 0x0;
-	this.aliases["unpack-lo"]    = 0x1;
+	this.aliases["unpack-hi"] = 0x0;
+	this.aliases["unpack-lo"] = 0x1;
 
 	this.inst(0, 0); // reserve a jump slot
 	while(!this.end()) {

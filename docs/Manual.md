@@ -88,7 +88,7 @@ Octo also provides pseudo-ops for using `<`, `>`, `<=` and `>=` to compare two r
 	if v1 >  v2  then v3 := 5
 	if v1 <= 0xA then v3 := 7
 
-These are implemented by using the subtraction instructions `-=` and `=-` and querying `vf`, and will destroy the contents of a temporary register as well as `vf`. By default this temporary register will be `ve`, but defining an `:alias` named `compare-temp` can reassign it to any register but `vf`. Note that these pseudo-ops produce 3 chip8 instructions each and should be avoided when the simpler direct comparisons are suitable.
+These are implemented by using the subtraction instructions `-=` and `=-` and querying `vf`. Note that these pseudo-ops produce 3 chip8 instructions each and should be avoided when the simpler direct comparisons are suitable.
 
 If you wish to conditionally execute a group of statements, you can use `if...begin...end` instead of `if...then`. Optionally you may include an `else` clause.
 
@@ -172,7 +172,7 @@ This generates code equivalent to the following:
 	v2 := v1
 	v1 := vf
 
-Macros must be defined before expansion, and macro definitions may not be nested, but macro invocations may appear within macro definitions.
+Macros must be defined before expansion, and nesting macro definitions does not generally make sense, but macro invocations may appear within macro definitions. Unless it has been shadowed by a macro argument, the special name `CALLS` will be substituted within a macro with a number corresponding to how many times this macro has been expanded, counting from 0.
 
 Sometimes there is an arithmetic relationship between constants in your program. Rather than computing them by hand, the `:calc` command allows you to perform calculations at compile time. It takes a name, followed by a `{`, a sequence of numbers, constant references, binary operators, unary operators or parentheses, and finally a terminal `}`. The name is assigned to the result of evaluating the expression within curly braces. The following operators are available:
 
@@ -216,7 +216,7 @@ Finally, drawing a sprite with height 0 (which would otherwise do nothing) is us
 
 XO-Chip
 -------
-Beyond SuperChip, Octo provides a set of unique extended instructions called XO-Chip. These instructions provide a 4-color display, improved scrolling functionality, a flexible audio generator, expanded ram and instructions which make memory manipulation more convenient. Since XO-Chip introduces a few minor changes to the behavior of Octo, these features must be explicitly enabled in the Options panel.
+Beyond SuperChip, Octo provides a set of unique extended instructions called XO-Chip. These instructions provide a 4-color display, improved scrolling functionality, a flexible audio generator, expanded ram and instructions which make memory manipulation more convenient.
 
 - `save vx - vy` save an inclusive range of registers to memory starting at `i`.
 - `load vx - vy` load an inclusive range of registers from memory starting at `i`.
@@ -236,3 +236,5 @@ When interrupted, pressing "i" again or clicking the "continue" icon will resume
 Pressing the "p" key will interrupt execution and display a profiler, indicating a best guess at the time spent in subroutines within your program so far. The profiler shows the top 20 results in a table, and you can also copy and paste a more detailed dump of profiling information for further analysis offline.
 
 Breakpoints can also be placed in source code by using the command `:breakpoint` followed by a name- the name will be shown when the breakpoint is encountered so that multiple breakpoints can be readily distinguished. `:breakpoint` is an out-of-band debugging facility and inserting a breakpoint into your program will not add any code or modify any Chip8 registers.
+
+The command `:monitor`, followed by a base address and length, will register a memory monitor. While your program runs, monitors will be updated continuously to reflect the contents of memory. Pressing "m" will toggle the memory monitor on and off. Like `:breakpoint`, `:monitor` is out-of-band and generates no instructions.

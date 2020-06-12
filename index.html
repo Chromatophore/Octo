@@ -1,5 +1,6 @@
 <html>
 <head>
+	<title>Octo</title>
 	<script src='lib/codemirror/codemirror.min.js'></script>
 	<script src='lib/codemirror/octomode.js'></script>
   <script src='lib/filesaver.js'></script>
@@ -9,9 +10,11 @@
   <script src='js/shared.js'></script>
   <script src='js/util.js'></script>
   <script src='js/sharing.js'></script>
+  <script src='js/input.js'></script>
 
 	<link rel='stylesheet' href='lib/codemirror/codemirror.min.css'>
 	<link rel='stylesheet' href='lib/codemirror/monokai.css'>
+	<link rel='shortcut icon' href='images/favicon.ico' type='image/x-icon'>
 </head>
 
 <body>
@@ -137,6 +140,11 @@
           <span data-value='dec'>Decimal</span>
           <span data-value='hex'>Hexadecimal</span>
         </div>
+        <h1>Linter Mode</h1>
+        <div id='linter-mode'>
+          <span data-value='none'>No Linting</span>
+          <span data-value='pedantic'>Pedantic Linting</span>
+        </div>
         <h1>File Output</h1>
         <div>
           <input id='binary-filename' value='output'>
@@ -145,11 +153,11 @@
           <div id='binary-save-8o'>Save <tt>.8o</tt></div>
           <div id='binary-save-ch8'>Save <tt>.ch8</tt></div>
           <div id='binary-save-cart'>Save Cartridge...</div>
-          <div id='binary-save-html'>Save HTML</div>
+          <div id='binary-save-html'>Save HTML...</div>
         </div>
       </div>
 
-      <div data-panel='color' class='tool-header'>Colors</div>
+      <div data-panel='color' class='tool-header'>Appearance</div>
       <div data-panel='color' class='tool-body'>
         <h1>Palette</h1>
         <table id='color-table'>
@@ -169,6 +177,18 @@
           <span data-value='cga0'>CGA 0</span>
           <span data-value='cga1'>CGA 1</span>
         </div>
+        <h1>Fonts</h1>
+        <div id='emulator-fonts'>
+          <span data-value='octo'>Octo</span>
+          <span data-value='vip'>VIP</span>
+          <span data-value='schip'>SCHIP</span>
+          <span data-value='dream6800'>Dream</span>
+          <span data-value='eti660'>ETI</span>
+          <span data-value='fish'>Fish'N'Chips</span>
+        </div>
+        <div class='preview-container'>
+          <canvas id='font-draw' width="290" height="44"></canvas>
+        </div>
       </div>
 
       <div data-panel='options' class='tool-header'>Options</div>
@@ -180,14 +200,14 @@
         <div id='compat-load'>
           <span><tt>load</tt> and <tt>store</tt> operations leave <tt>i</tt> unchanged.</span>
         </div>
-        <div id='compat-vf'>
-          <span>arithmetic results write to <tt>vf</tt> after status flag.</span>
+        <div id='compat-jump0'>
+          <span>4 high bits of target address determines the offset register of <tt>jump0</tt> instead of <tt>v0</tt>.</span>
+        </div>
+        <div id='compat-logic'>
+          <span>clear <tt>vF</tt> after <tt>vx |= vy</tt>, <tt>vx &amp;= vy</tt>, and <tt>vx ^= vy</tt>.</span>
         </div>
         <div id='compat-clip'>
           <span>clip sprites at screen edges instead of wrapping.</span>
-        </div>
-        <div id='compat-jump0'>
-          <span>4 high bits of target address determines the offset register of <tt>jump0</tt> instead of <tt>v0</tt>.</span>
         </div>
         <div id='compat-vblank'>
           <span>vblank after drawing sprites.</span>
@@ -215,6 +235,7 @@
         </div>
         <div class='buttonbar'>
           <div id='key-config-show'>Keyboard Configuration...</div>
+          <div id='touch-config-show'>Touch Controls...</div>
         </div>
       </div>
 
@@ -241,43 +262,15 @@
     <div id='run-overlay'>
       <div id='run-controls'>
         <img src='images/close.png'    title='close'         id='run-close'   >
-        <img src='images/keypad.png'   title='toggle keypad' id='run-keypad'  >
         <img src='images/record.png'   title='record gif'    id='run-record'  >
         <img src='images/continue.png' title='continue'      id='run-continue'>
       </div>
       <div id='debugger'></div>
+      <div id='monitor'>Monitor goes here.</div>
     </div>
     <div class='spacer'></div>
     <div id='run-container'>
       <canvas id='target' width='640' height='320'></canvas>
-    </div>
-    <div id='run-keys' class='invisible'>
-      <div class='keypad'>
-        <div class='key-row'>
-          <div class='key' id='0x1'>1</div>
-          <div class='key' id='0x2'>2</div>
-          <div class='key' id='0x3'>3</div>
-          <div class='key' id='0xC'>C</div>
-        </div>
-        <div class='key-row'>
-          <div class='key' id='0x4'>4</div>
-          <div class='key' id='0x5'>5</div>
-          <div class='key' id='0x6'>6</div>
-          <div class='key' id='0xD'>D</div>
-        </div>
-        <div class='key-row'>
-          <div class='key' id='0x7'>7</div>
-          <div class='key' id='0x8'>8</div>
-          <div class='key' id='0x9'>9</div>
-          <div class='key' id='0xE'>E</div>
-        </div>
-        <div class='key-row'>
-          <div class='key' id='0xA'>A</div>
-          <div class='key' id='0x0'>0</div>
-          <div class='key' id='0xB'>B</div>
-          <div class='key' id='0xF'>F</div>
-        </div>
-      </div>
     </div>
     <div class='spacer'></div>
   </div>
@@ -302,6 +295,42 @@
         <div class='buttonbar'>
           <div id='cartridge-cancel'>Cancel</div>
           <div id='cartridge-save'>Save</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id='html-modal'>
+    <div class='lightbox background'></div>
+    <div class='lightbox foreground'>
+      <div class='modal'>
+        <h1>Save Standalone HTML</h1>
+        <p>
+          Export your program and the Octo runtime as a single
+          standalone HTML file suitable for hosting on your own website.
+        </p>
+        <h2>Display Scaling</h2>
+        <div id='html-scale'>
+          <span data-value='1'>1x</span>
+          <span data-value='2'>2x</span>
+          <span data-value='4'>4x</span>
+          <span data-value='6'>6x</span>
+        </div>
+        <h2>Touch Input Mode</h2>
+        <div id='html-input-mode'>
+          <span data-value='none'     >None      </span>
+          <span data-value='swipe'    >Swipe     </span>
+          <span data-value='seg16'    >Seg16     </span>
+          <span data-value='seg16fill'>Seg16 Fill</span>
+          <span data-value='gamepad'  >Gamepad   </span>
+          <span data-value='vip'      >VIP Keypad</span>
+        </div>
+        <div id='key-config-standalone'>
+          <span>Embed local keyboard mapping.</span>
+        </div>
+        <div class='buttonbar'>
+          <div id='html-cancel'>Cancel</div>
+          <div id='html-save'>Save</div>
         </div>
       </div>
     </div>
@@ -342,11 +371,35 @@
             <td><div class='button' data-key='F'>F</div><input data-key='F'></td>
           </tr>
         </table>
-        <div id='key-config-standalone'>
-          <span>When saving standalone HTML programs, embed this mapping.</span>
-        </div>
         <div class='buttonbar'>
           <div id='key-config-done'>Done</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id='touch-config-modal'>
+    <div class='lightbox background'></div>
+    <div class='lightbox foreground'>
+      <div class='modal'>
+        <h1>Touch Input Configuration</h1>
+        <p>
+          Octo offers several strategies for converting touch input into VIP keypad input,
+          allowing existing programs to be used on mobile devices and tablets.
+          These input methods will only become active if a user touches the Octo screen.
+          Choose a mode for details on how each one works.
+        </p>
+        <div id='touch-input-mode'>
+          <span data-value='none'     >None      </span>
+          <span data-value='swipe'    >Swipe     </span>
+          <span data-value='seg16'    >Seg16     </span>
+          <span data-value='seg16fill'>Seg16 Fill</span>
+          <span data-value='gamepad'  >Gamepad   </span>
+          <span data-value='vip'      >VIP Keypad</span>
+        </div>
+        <p id='touch-input-desc'></p>
+        <div class='buttonbar'>
+          <div id='touch-config-done'>Done</div>
         </div>
       </div>
     </div>
@@ -479,7 +532,7 @@ input:focus { outline: none; }
 .menu li { padding: 0px 30px 0px 30px; }
 .menu li:hover { background: #888; }
 .menu li:active, .menu li.selected { background: #444; }
-#main-examples ul { font-family: monospace; font-size: 10px; line-height: 18px; }
+#main-examples ul { font-family: monospace; }
 
 #main { flex-grow: 1; display: flex; flex-direction: row; }
 #main #editor .CodeMirror { flex-grow: 1; }
@@ -495,6 +548,7 @@ input:focus { outline: none; }
 #toolbox .tool-header { flex-grow: 0; border-top: 1px solid #222; cursor: pointer; }
 #toolbox .tool-header:hover { background:#202020; }
 #toolbox .tool-body { background:gray; color:black; padding:0 10px 0 10px; flex-grow:1; display:none; }
+#toolbox .tool-body tt { color:#202020; }
 #toolbox .tool-body.selected { display:block; }
 #toolbox h1 { font-size: 13px; padding-top:10px; padding-bottom:5px; margin:0; }
 #toolbox canvas { border:1px solid black; }
@@ -573,26 +627,18 @@ input:focus { outline: none; }
   overflow-y: scroll;
   margin-top: 10px;
 }
+.debug-lint-message { font-family:'Poppins'; }
+.debug-lint-message tt { color:orange; }
 
-#run-container, #run-keys { display: flex; flex-direction: row; justify-content: center; }
-#run-keys { z-index: 2000; }
-#run-container canvas { border: 1px solid black; }
-#run-cover .spacer { flex-grow: 1; }
-#run-keys .keypad { display: flex; flex-direction: column; margin-top: 20px; }
-#run-keys .key-row { display: flex; flex-direction: row; }
-#run-keys .key {
-  text-align: center;
-  color: black;
-  background-color: white;
-  border: 1px solid black;
-  -webkit-user-select: none;
-  user-select: none;
-  font-size: 7vh;
-  width: 11vw;
-  height: 10vh;
-}
-#run-keys .key:active,
-#run-keys .key.active { color: white; background-color: black; border: 1px solid white; }
+#run-container { display: flex; flex-direction: row; justify-content: center;}
+#run-container canvas { z-index: 1000; }
+
+#monitor { font-family: monospace; text-shadow: black 0 0 5px; display:none; position:fixed; right:10px;top:10px; max-width:420px; }
+#monitor>table { border-collapse: collapse; }
+#monitor tr:hover { background: gray; }
+#monitor th { border-bottom: 1px solid white; min-width: 80px; }
+#monitor th:not(:first-child),
+#monitor td:not(:first-child) { border-left: 1px solid white; padding:4px; }
 
 #dragon { flex-direction: column; opacity:0.5; }
 #dragon>div { text-align:center; font-size: 30px; }
@@ -609,6 +655,17 @@ input:focus { outline: none; }
 #cartridge-modal .modal { background:gray; border-radius:5px; padding:15px; image-rendering: pixelated; }
 #cartridge-modal #cartridge-preview { border:8px solid black; cursor:pointer; }
 
+#html-modal { color:black; display:none; }
+#html-modal h1 { font-size: 13px; margin:0; }
+#html-modal h2 { font-size: 13px; margin:0; margin-top:10px; }
+#html-modal p { width: 500px; }
+#html-modal>.lightbox { display:flex; }
+#html-modal>.lightbox.background { opacity:0.5; }
+#html-modal>.lightbox.foreground { background:rgba(0,0,0,0); align-items:center; }
+#html-modal .modal { background:gray; border-radius:5px; padding:15px; image-rendering: pixelated; }
+#html-modal #key-config-standalone { margin-top: 20px; }
+#html-modal .buttonbar { margin-top:20px; }
+
 #key-config-modal { color:black; display:none; }
 #key-config-modal h1 { font-size: 13px; margin:0; }
 #key-config-modal p { width: 500px; }
@@ -618,7 +675,15 @@ input:focus { outline: none; }
 #key-config-modal .modal { background:gray; border-radius:5px; padding:15px; image-rendering: pixelated; }
 #key-config-modal table .button { width:30px; display:inline-block; }
 #key-config-modal table input { width:150px; display:inline-block; margin-left:5px; }
-#key-config-modal #key-config-standalone { margin-top:10px; }
+
+#touch-config-modal { color:black; display:none; }
+#touch-config-modal h1 { font-size: 13px; margin:0; }
+#touch-config-modal p { width: 500px; }
+#touch-config-modal>.lightbox { display:flex; }
+#touch-config-modal>.lightbox.background { opacity:0.5; }
+#touch-config-modal>.lightbox.foreground { background:rgba(0,0,0,0); align-items:center; }
+#touch-config-modal .modal { background:gray; border-radius:5px; padding:15px; image-rendering: pixelated; }
+#touch-config-modal #touch-input-desc { min-height:100px; }
 
 </style>
 
@@ -643,6 +708,7 @@ const editor = CodeMirror(document.getElementById('editor'), {
   tabSize:        2,
   indentWithTabs: true,
   dragDrop:       false,
+  viewportMargin: Infinity,
   value:          'loading...',
   gutters:        ['breakpoints', 'CodeMirror-linenumbers'],
   extraKeys: {
@@ -792,24 +858,11 @@ showManual.onclick = _ => {
 
 document.getElementById('run-close'   ).onclick = _ => stopRom()
 document.getElementById('run-continue').onclick = _ => clearBreakpoint()
-document.getElementById('run-keypad'  ).onclick = _ => {
-  document.getElementById('run-keys').classList.toggle('invisible')
-}
-
-if (window.innerWidth < window.innerHeight) {
-  // make a guess that portrait-mode windows are mobile devices.
-  // in this situation, the virtual keypad should be visible by default:
-  document.getElementById('run-keys').classList.remove('invisible')
-}
-
-function getVirtualKey(k) { return document.getElementById('0x' + k.toString(16).toUpperCase()) }
-function setVirtualKey(k, v) { if (k != undefined) getVirtualKey(k).classList.toggle('active', v) }
 
 window.onkeydown = event => {
   if (emulator.halted) return
   if (!(event.key in emulator.keys)) {
     emulator.keys[event.key] = true
-    setVirtualKey(keymapInverse[event.key], true)
   }
   event.preventDefault()
 }
@@ -818,7 +871,6 @@ window.onkeyup = event => {
   if (emulator.halted) return
   if (event.key in emulator.keys) {
     delete emulator.keys[event.key]
-    setVirtualKey(keymapInverse[event.key], false)
   }
   const kindex = keymapInverse[event.key]
   if (emulator.waiting && kindex != undefined) {
@@ -828,6 +880,7 @@ window.onkeyup = event => {
   if (event.key == '`') { stopRom() }
   if (event.key == 'i') { emulator.breakpoint ? clearBreakpoint() : haltBreakpoint('user interrupt') }
   if (event.key == 'p') { haltProfiler('profiler') }
+  if (event.key == 'm') { monitoring = !monitoring; setVisible(document.getElementById('monitor'),monitoring) }
   if (emulator.breakpoint) {
     if (event.key == 'o') { emulator.dt = emulator.st = 0; emulator.tick(); renderDisplay(emulator); haltBreakpoint('single step') }
     if (event.key == 'u') { const l = emulator.r.length; if (l>0) { emulator.stack_breakpoint = l-1; clearBreakpoint() } } // step out
@@ -839,19 +892,12 @@ window.onkeyup = event => {
   event.preventDefault()
 }
 
-range(16).forEach(k => {
-  const m    = Object.keys(keymap[k])[0] || '0'
-  const fake = { key: m, preventDefault:_=>{} }
-  const dn   = _ => window.onkeydown(fake)
-  const up   = _ => { if (m in emulator.keys) window.onkeyup(fake) }
-  const b    = getVirtualKey(k)
-  b.onmousedown  = dn
-  b.onmouseup    = up
-  b.onmouseout   = up
-  b.ontouchstart = dn
-  b.ontouchenter = up
-  b.ontouchleave = up
-})
+injectAdaptiveControls(
+  emulator.touchInputMode,
+  document.getElementById('target'),
+  window.onkeyup,
+  window.onkeydown
+)
 
 /**
 * Central Dogma:
@@ -895,6 +941,7 @@ function compile() {
   return {
     rom:         c.rom,
     breakpoints: c.breakpoints,
+    monitors:    c.monitors,
     dbginfo:     c.dbginfo,
     aliases:     c.aliases,
     labels:      c.dict,
@@ -908,19 +955,22 @@ function runRom(rom) {
   if (rom === null) return
   if (intervalHandle != null) stopRom()
   emulator.exitVector = stopRom
-  emulator.importFlags = _ => JSON.parse(localStorage.getItem('octoFlagRegisters'))
-  emulator.exportFlags = f => localStorage.setItem('octoFlagRegisters', JSON.stringify(f))
+  emulator.importFlags = _ => getPref('octoFlagRegisters')
+  emulator.exportFlags = f => setPref('octoFlagRegisters',f)
   emulator.buzzTrigger = (ticks, remainingTicks) => playPattern(ticks, emulator.pattern, remainingTicks)
   emulator.init(rom)
   clearBreakpoint()
   audioSetup()
   setVisible(runCover, true, 'flex')
+  updateMonitor()
+  resetLinter()
   runCover.style.backgroundColor = emulator.quietColor
   setRenderTarget(5, 'target')
   intervalHandle = setInterval(_ => {
     for(var z = 0; (z < emulator.tickrate) && (!emulator.waiting); z++) {
       if (!emulator.breakpoint) {
         if (emulator.vBlankQuirks && ((emulator.m[emulator.pc] & 0xF0) == 0xD0)) { z = emulator.tickrate }
+        if (emulator.linted) lint()
         emulator.tick()
         if (emulator.pc in emulator.metadata.breakpoints) { haltBreakpoint(emulator.metadata.breakpoints[emulator.pc]) }
         if (emulator.r.length == emulator.stack_breakpoint) { emulator.stack_breakpoint = -1; haltBreakpoint('step out') }
@@ -932,6 +982,7 @@ function runRom(rom) {
     }
     recordFrame()
     renderDisplay(emulator)
+    if (monitoring && !emulator.halted && !emulator.breakpoint) updateMonitor()
     if (emulator.halted) return
     runCover.style.backgroundColor = (emulator.st > 0) ? emulator.buzzColor : emulator.quietColor
   }, 1000/60)

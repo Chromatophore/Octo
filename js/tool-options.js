@@ -6,17 +6,17 @@ const compatProfile  = radioBar(document.getElementById('compatibility-profile')
 const screenRotation = radioBar(document.getElementById('screen-rotation'), 0, x => emulator.screenRotation = +x)
 
 const compatibilityProfiles = {
-  chip8: { shiftQuirks:0, loadStoreQuirks:0, vfOrderQuirks:0, clipQuirks:1, jumpQuirks:0, vBlankQuirks:1, maxSize:3215  },
-  schip: { shiftQuirks:1, loadStoreQuirks:1, vfOrderQuirks:0, clipQuirks:1, jumpQuirks:1, vBlankQuirks:0, maxSize:3583  },
-  octo:  { shiftQuirks:0, loadStoreQuirks:0, vfOrderQuirks:0, clipQuirks:0, jumpQuirks:0, vBlankQuirks:0, maxSize:3584  },
-  xo:    { shiftQuirks:0, loadStoreQuirks:0, vfOrderQuirks:0, clipQuirks:0, jumpQuirks:0, vBlankQuirks:0, maxSize:65024 },
+  chip8: { shiftQuirks:0, loadStoreQuirks:0, clipQuirks:1, jumpQuirks:0, logicQuirks:1, vBlankQuirks:1, maxSize:3215  },
+  schip: { shiftQuirks:1, loadStoreQuirks:1, clipQuirks:1, jumpQuirks:1, logicQuirks:0, vBlankQuirks:0, maxSize:3583  },
+  octo:  { shiftQuirks:0, loadStoreQuirks:0, clipQuirks:0, jumpQuirks:0, logicQuirks:0, vBlankQuirks:0, maxSize:3584  },
+  xo:    { shiftQuirks:0, loadStoreQuirks:0, clipQuirks:0, jumpQuirks:0, logicQuirks:0, vBlankQuirks:0, maxSize:65024 },
 }
 const compatibilityFlags = {
   shiftQuirks:     checkBox(document.getElementById('compat-shift' ), false, setOptions),
   loadStoreQuirks: checkBox(document.getElementById('compat-load'  ), false, setOptions),
-  vfOrderQuirks:   checkBox(document.getElementById('compat-vf'    ), false, setOptions),
   clipQuirks:      checkBox(document.getElementById('compat-clip'  ), false, setOptions),
   jumpQuirks:      checkBox(document.getElementById('compat-jump0' ), false, setOptions),
+  logicQuirks:     checkBox(document.getElementById('compat-logic' ), false, setOptions),
   vBlankQuirks:    checkBox(document.getElementById('compat-vblank'), false, setOptions),
   maxSize:         radioBar(document.getElementById('max-size'), 3584, setOptions),
 }
@@ -48,7 +48,6 @@ function updateOptions() {
 **/
 
 const keyConfigModal = document.getElementById('key-config-modal')
-const keyConfigStandalone = checkBox(document.getElementById('key-config-standalone' ), false, x => x)
 
 document.getElementById('key-config-show').onclick = _ => {
   keyConfigModal.querySelectorAll('table .button').forEach(x => {
@@ -69,7 +68,6 @@ document.getElementById('key-config-show').onclick = _ => {
     }
   })
   setVisible(keyConfigModal, true)
-  keyConfigStandalone.setValue(keymap.staticExport == true)
 }
 
 document.getElementById('key-config-done').onclick = _ => {
@@ -77,9 +75,43 @@ document.getElementById('key-config-done').onclick = _ => {
     const k = parseInt(x.dataset.key, 16)
     keymap[k] = toset(x.value.split(','))
   })
-  keymap.staticExport = keyConfigStandalone.getValue()
   keymapInverse = invertKeymap(keymap)
-  localStorage.setItem('octoKeymap', JSON.stringify(keymap))
+  setPref('octoKeymap', keymap)
   setVisible(keyConfigModal, false)
 }
 
+/**
+* Touch Config
+**/
+
+const touchDescs = {
+  none:      'Do not attempt to handle touch input.',
+  swipe:     'Taps on the screen are treated like pressing key 6. Swipes or dragging and holding on the screen are treated like a virtual directional pad based on keys 5,8,7 and 9.',
+  seg16:     'Treat taps and holds on the center of the screen like an invisible 4x4 hex keypad.',
+  seg16fill: 'The same as <b>Seg16</b>, but the virtual keys take up the entire display, rather than a square region.',
+  gamepad:   'Draw a translucent virtual gamepad around the screen. The directional pad is mapped to keys 5,8,7 and 9, and buttons A and B are mapped to keyboard keys 6 and 4, respectively.',
+  vip:       'Display a 4x4 hex keypad under the screen.',
+}
+function setTouchInputMode(mode) {
+  emulator.touchInputMode = mode
+  document.getElementById('touch-input-desc').innerHTML = touchDescs[mode]
+}
+
+const touchConfigModal = document.getElementById('touch-config-modal')
+const touchInputMode = radioBar(document.getElementById('touch-input-mode'), 'none', setTouchInputMode)
+
+document.getElementById('touch-config-show').onclick = _ => {
+  touchInputMode.setValue(emulator.touchInputMode)
+  setTouchInputMode('none')
+  setVisible(touchConfigModal, true)
+}
+document.getElementById('touch-config-done').onclick = _ => {
+  injectAdaptiveControls(
+    emulator.touchInputMode,
+    document.getElementById('target'),
+    window.onkeyup,
+    window.onkeydown
+  )
+  saveLocalOptions()
+  setVisible(touchConfigModal, false)
+}
